@@ -1,0 +1,23 @@
+services:
+  nginx:
+    build:
+      context: docker/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./public:/var/www/public
+      - ./docker/ssl:/etc/letsencrypt
+    depends_on:
+      - app
+
+  certbot:
+    build:
+      context: docker/certbot
+    environment:
+      DOMAIN: exemplo.com
+      EMAIL: admin@exemplo.com
+    volumes:
+      - ./docker/ssl:/etc/letsencrypt
+      - ./public:/var/www/public

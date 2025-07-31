@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      target: builder
+    volumes:
+      - .:/var/www
+    ports:
+      - "8000:8000"
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  nginx:
+    ports:
+      - "8080:80"
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "8025:8025"
+    networks:
+      - app-network
