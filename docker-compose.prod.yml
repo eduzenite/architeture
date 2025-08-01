@@ -1,5 +1,5 @@
 services:
-  nginx:
+  application_server:
     build:
       context: docker/nginx
       dockerfile: Dockerfile
@@ -10,7 +10,7 @@ services:
       - ./public:/var/www/public
       - ./docker/ssl:/etc/letsencrypt
     depends_on:
-      - app
+      - application
 
   certbot:
     build:

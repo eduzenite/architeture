@@ -1,12 +1,10 @@
-version: "3.9"
-
 services:
-  app:
+  application:
     environment:
       APP_ENV: staging
       APP_DEBUG: false
     command: php-fpm
 
-  nginx:
+  application_server:
     ports:
       - "8080:80"
