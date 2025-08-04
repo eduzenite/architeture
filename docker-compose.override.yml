@@ -9,9 +9,9 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-architecture_prod}
-      MYSQL_USER: ${MYSQL_USER:-app}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-architecture}
+      MYSQL_USER: ${MYSQL_USER:-architecture}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
     volumes:
       - db_data:/var/lib/mysql
     networks:
