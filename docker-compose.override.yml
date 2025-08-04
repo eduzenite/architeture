@@ -1,20 +1,42 @@
 services:
   application:
-    build:
-      target: builder
+    depends_on:
+      - application-database
+
+  application-database:
+    container_name: mysql
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-architecture_prod}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
     volumes:
-      - .:/var/www
-    ports:
-      - "8000:8000"
-    command: php artisan serve --host=0.0.0.0 --port=8000
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
 
-  application_server:
-    ports:
-      - "8084:81"
-
-  application_mailhog:
+  application-mailhog:
     image: mailhog/mailhog:latest
+    container_name: mailhog
     ports:
-      - "8026:8026"
+      - "8025:8025"
+    networks:
+      - app-network
+
+  application-storage:
+    container_name: minio
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    volumes:
+      - minio_data:/data
     networks:
       - app-network

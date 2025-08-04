@@ -1,23 +1,16 @@
 services:
-  application_server:
-    build:
-      context: docker/nginx
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./public:/var/www/public
-      - ./docker/ssl:/etc/letsencrypt
-    depends_on:
-      - application
-
   certbot:
+    container_name: certbot
     build:
       context: docker/certbot
     environment:
-      DOMAIN: exemplo.com
-      EMAIL: admin@exemplo.com
+      DOMAIN: architecture.com.br
+      EMAIL: admin@architecture.com.br
     volumes:
       - ./docker/ssl:/etc/letsencrypt
       - ./public:/var/www/public
+    command: >
+      certonly --webroot --webroot-path=/var/www/public
+      --agree-tos --no-eff-email
+      --email admin@architecture.com.br
+      -d architecture.com.br

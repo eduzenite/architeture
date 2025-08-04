@@ -1,10 +1,42 @@
 services:
   application:
-    environment:
-      APP_ENV: staging
-      APP_DEBUG: false
-    command: php-fpm
+    depends_on:
+      - application-database
 
-  application_server:
+  application-database:
+    container_name: mysql
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-architecture_prod}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - app-network
+
+  application-mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
     ports:
-      - "8080:80"
+      - "8025:8025"
+    networks:
+      - app-network
+
+  application-storage:
+    container_name: minio
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
