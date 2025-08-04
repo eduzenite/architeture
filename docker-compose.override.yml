@@ -2,6 +2,9 @@ services:
   application:
     depends_on:
       - application-database
+    command: >
+      sh -c "php artisan serve --host=0.0.0.0 --port=8000 & php artisan queue:work --sleep=3 --tries=3"
+
 
   application-database:
     container_name: mysql

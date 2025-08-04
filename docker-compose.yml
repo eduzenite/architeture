@@ -34,3 +34,4 @@ volumes:
     db_data:
     redis_data:
     minio_data:
+
