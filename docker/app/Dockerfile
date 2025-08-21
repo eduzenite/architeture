@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
         pdo pdo_mysql mbstring zip opcache gd intl xsl bcmath sockets \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Instalar extensão Redis
+RUN pecl install redis \
+    && docker-php-ext-enable redis
+
 # Instala Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
