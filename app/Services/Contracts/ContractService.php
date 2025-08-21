@@ -1,77 +1,57 @@
 <?php
-
 namespace App\Services\Contracts;
 
-use App\Models\Contracts\Contract;
+use App\DTOs\Contracts\ContractCreateDTO;
+use App\DTOs\Contracts\ContractDTO;
+use App\DTOs\Contracts\ContractUpdateDTO;
+use App\Repositories\Contracts\ContractRepositoryInterface;
 
 class ContractService
 {
-    public function list(array $filters = [])
+    private ContractRepositoryInterface $repository;
+
+    public function __construct(ContractRepositoryInterface $repository)
     {
-        $query = Contract::query();
+        $this->repository = $repository;
+    }
 
-        if (isset($filters['title'])) {
-            $query->where('title', 'like', '%' . $filters['title'] . '%');
-        }
+    public function list(array $filters = [], int $perPage = 15): array
+    {
+        $paginator = $this->repository->list($filters, $perPage);
 
-        if (isset($filters['started_at'])) {
-            $query->where('started_at', '>=', $filters['started_at']);
-        }
-
-        if (isset($filters['ended_at'])) {
-            $query->where('ended_at', '<=', $filters['ended_at']);
-        }
-
-        return $query->get();
+        return [
+            'items' => collect($paginator->items())
+                ->map(fn ($contract) => ContractDTO::fromModel($contract))
+                ->values(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page'     => $paginator->perPage(),
+                'total'        => $paginator->total(),
+                'last_page'    => $paginator->lastPage(),
+            ],
+        ];
     }
 
     public function find(int $id)
     {
-        $contract = Contract::find($id);
-        if (!$contract) {
-            return null;
-        }
-
-        return $contract;
+        $model = $this->repository->find($id);
+        return $model ? ContractDTO::fromModel($model) : null;
     }
 
-    public function create(array $data)
+    public function create(ContractCreateDTO $input)
     {
-        $contract = new Contract();
-        $contract->title = $data['title'] ?? '';
-        $contract->description = $data['description'] ?? '';
-        $contract->started_at = $data['started_at'] ?? null;
-        $contract->ended_at = $data['ended_at'] ?? null;
-        $contract->canceled_at = $data['canceled_at'] ?? null;
-        $contract->save();
-
-        return $contract;
+        $model = $this->repository->create($input->toArray());
+        return ContractDTO::fromModel($model);
     }
 
-    public function update(string $id, array $data)
+    public function update(int $id, ContractUpdateDTO $input)
     {
-        $contract = $this->find($id);
-        if (!$contract) {
-            return null;
-        }
-
-        $contract->title = $data['title'] ?? $contract->title;
-        $contract->description = $data['description'] ?? $contract->description;
-        $contract->started_at = $data['started_at'] ?? $contract->started_at;
-        $contract->ended_at = $data['ended_at'] ?? $contract->ended_at;
-        $contract->canceled_at = $data['canceled_at'] ?? $contract->canceled_at;
-        $contract->save();
-
-        return $contract;
+        $model = $this->repository->update($id, $input->toArray());
+        return $model ? ContractDTO::fromModel($model) : null;
     }
 
-    public function delete(string $id)
+    public function delete(int $id)
     {
-        $contract = $this->find($id);
-        if (!$contract) {
-            return false;
-        }
-
-        return $contract->delete();
+        return $this->repository->delete($id);
     }
 }

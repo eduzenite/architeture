@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\Contracts\Contract;
 use App\Policies\Contracts\ContractPolicy;
 use Illuminate\Support\ServiceProvider;
+use App\Repositories\Contracts\ContractRepositoryInterface;
+use App\Repositories\Contracts\EloquentContractRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,7 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            ContractRepositoryInterface::class,
+            EloquentContractRepository::class
+        );
     }
 
     /**
