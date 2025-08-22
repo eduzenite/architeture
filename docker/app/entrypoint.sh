@@ -1,17 +1,17 @@
 #!/bin/sh
 
-# Espera o MySQL ficar disponível antes de rodar migrations
 echo "Aguardando banco de dados..."
 until php artisan db:show > /dev/null 2>&1; do
   sleep 2
 done
 
-# Rodar migrations apenas na primeira vez
-if [ ! -f /var/www/.migrated ]; then
-  echo "Rodando migrations..."
-  php artisan migrate --force
-  touch /var/www/.migrated
-fi
+echo "Rodando migrations..."
+php artisan migrate --force
 
-# Rodar o comando padrão do container (Laravel + Queue)
+echo "Limpando caches..."
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+
 exec "$@"
