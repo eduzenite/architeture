@@ -12,6 +12,7 @@ O ambiente de desenvolvimento roda o Laravel com `php artisan serve`, e inclui f
 * MinIO (armazenamento S3 fake)
 
 ```bash
+docker-compose build --no-cache application
 docker-compose up -d
 ```
 
@@ -22,7 +23,7 @@ docker-compose up -d
 
 Acessos padrão:
 
-* Laravel: [http://localhost:8000](http://localhost:8000)
+* Laravel: [http://localhost:8011](http://localhost:8000)
 * Mailhog: [http://localhost:8026](http://localhost:8026)
 * MinIO Console: [http://localhost:9001](http://localhost:9001)
 
