@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Web\Contracts;
+namespace App\Http\Controllers\Api\Contracts;
 
 use App\DTOs\Contracts\ContractCreateDTO;
 use App\DTOs\Contracts\ContractUpdateDTO;
@@ -17,7 +17,7 @@ class ContractController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['title', 'started_at', 'ended_at']);
-        $contracts = $this->contractService->list($filters, $request->get('per_page', 15));
+        $contracts = $this->contractService->list($filters, $request->get('per_page', 24));
 
         return response()->json([
             'status'  => 'success',
