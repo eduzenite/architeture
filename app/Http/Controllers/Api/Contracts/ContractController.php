@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\Contracts;
 
-use App\DTOs\Contracts\ContractCreateDTO;
-use App\DTOs\Contracts\ContractUpdateDTO;
+use App\DTOs\Contracts\NfseCreateDTO;
+use App\DTOs\Contracts\NfseUpdateDTO;
 use App\Http\Controllers\Controller;
 use App\Services\Contracts\ContractService;
 use Illuminate\Http\Request;
@@ -55,7 +55,7 @@ class ContractController extends Controller
             'canceled_at'  => 'nullable|date',
         ]);
 
-        $dto = ContractCreateDTO::fromArray($data);
+        $dto = NfseCreateDTO::fromArray($data);
         $contract = $this->contractService->create($dto);
 
         return response()->json([
@@ -75,7 +75,7 @@ class ContractController extends Controller
             'canceled_at'  => 'sometimes|nullable|date',
         ]);
 
-        $dto = ContractUpdateDTO::fromArray($data);
+        $dto = NfseUpdateDTO::fromArray($data);
         $contract = $this->contractService->update($id, $dto);
 
         if (!$contract) {

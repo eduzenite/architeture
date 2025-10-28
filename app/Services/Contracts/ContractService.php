@@ -1,9 +1,9 @@
 <?php
 namespace App\Services\Contracts;
 
-use App\DTOs\Contracts\ContractCreateDTO;
-use App\DTOs\Contracts\ContractDTO;
-use App\DTOs\Contracts\ContractUpdateDTO;
+use App\DTOs\Contracts\NfseCreateDTO;
+use App\DTOs\Contracts\NfseDTO;
+use App\DTOs\Contracts\NfseUpdateDTO;
 use App\Repositories\Contracts\ContractRepositoryInterface;
 
 class ContractService
@@ -21,7 +21,7 @@ class ContractService
 
         return [
             'items' => collect($paginator->items())
-                ->map(fn ($contract) => ContractDTO::fromModel($contract))
+                ->map(fn ($contract) => NfseDTO::fromModel($contract))
                 ->values(),
             'meta' => [
                 'current_page' => $paginator->currentPage(),
@@ -35,19 +35,19 @@ class ContractService
     public function find(int $id)
     {
         $model = $this->repository->find($id);
-        return $model ? ContractDTO::fromModel($model) : null;
+        return $model ? NfseDTO::fromModel($model) : null;
     }
 
-    public function create(ContractCreateDTO $input)
+    public function create(NfseCreateDTO $input)
     {
         $model = $this->repository->create($input->toArray());
-        return ContractDTO::fromModel($model);
+        return NfseDTO::fromModel($model);
     }
 
-    public function update(int $id, ContractUpdateDTO $input)
+    public function update(int $id, NfseUpdateDTO $input)
     {
         $model = $this->repository->update($id, $input->toArray());
-        return $model ? ContractDTO::fromModel($model) : null;
+        return $model ? NfseDTO::fromModel($model) : null;
     }
 
     public function delete(int $id)

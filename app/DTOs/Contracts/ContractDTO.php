@@ -16,15 +16,15 @@ class ContractDTO implements JsonSerializable
         public readonly ?string $canceled_at,
     ) {}
 
-    public static function fromModel(Contract $c): self
+    public static function fromModel(Contract $contract): self
     {
         return new self(
-            id:          $c->id,
-            title:       $c->title,
-            description: $c->description,
-            started_at:  $c->started_at?->format('Y-m-d'),
-            ended_at:    $c->ended_at?->format('Y-m-d'),
-            canceled_at: $c->canceled_at?->format('Y-m-d'),
+            id:          $contract->id,
+            title:       $contract->title,
+            description: $contract->description,
+            started_at:  $contract->started_at?->format('Y-m-d'),
+            ended_at:    $contract->ended_at?->format('Y-m-d'),
+            canceled_at: $contract->canceled_at?->format('Y-m-d'),
         );
     }
 
