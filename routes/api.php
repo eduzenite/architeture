@@ -12,6 +12,7 @@ Route::prefix('nfse')->group(function () {
     Route::post('/create', [NfseController::class, 'create']);
     Route::post('/create-batch', [NfseController::class, 'createBatch']);
 
+//    Route::post('/send/{nfseId}', function (Request $request, $nfseId) { dd(public_path('storage/certificates/nfse_certificate.pfx')); });
     Route::post('/send/{nfseId}', [NfseController::class, 'send']);
     Route::post('/send-batch/{batchId}', [NfseController::class, 'sendBatch']);
     Route::get('/check/{nfseId}', [NfseController::class, 'check']);

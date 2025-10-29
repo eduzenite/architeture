@@ -5,7 +5,7 @@ namespace App\Infra\PrefeituraSaoPaulo;
 use SimpleXMLElement;
 use Exception;
 
-class NfseResponseParser
+class NfseResponseParserInfra
 {
     private string $rawResponse;
     private ?SimpleXMLElement $xml = null;

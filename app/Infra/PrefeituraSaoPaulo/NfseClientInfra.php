@@ -13,19 +13,17 @@ use Illuminate\Support\Facades\Log;
  * Suporta envio de lotes, consultas, cancelamentos e leitura de retornos.
  * Utiliza autenticação via certificado digital A1 (.pfx).
  */
-class NfseClient
+class NfseClientInfra
 {
     /**
-     * Instância de autenticação (NfseAuth)
-     * @var NfseAuth
+     * Instância de autenticação (NfseAuthInfra)
+     * @var NfseAuthInfra
      */
-    protected NfseAuth $auth;
+    protected NfseAuthInfra $auth;
 
-    /**
-     * URL base da API (homologação ou produção)
-     * @var string
-     */
-    protected string $baseUrl;
+
+    protected string $loteNFe = '';
+    protected string $loteNFeAsync = '';
 
     /**
      * Timeout padrão em segundos
@@ -39,19 +37,21 @@ class NfseClient
      * @var array
      */
     protected array $endpoints = [
-        'enviar_lote' => '/dps/api/v1/lotes',
-        'consultar_lote' => '/dps/api/v1/lotes/{protocolo}',
-        'consultar_nfse' => '/dps/api/v1/notas/{numero}',
-        'cancelar_nfse' => '/dps/api/v1/notas/{numero}/cancelamento',
+        'send' => '/sefinnacional',
+        'sendBatch' => '/sefinnacional',
+        'check' => '/dps',
+        'checkBatch' => '/dps',
+        'cancel' => '/dps',
     ];
 
     /**
      * Construtor
      */
-    public function __construct(NfseAuth $auth)
+    public function __construct(NfseAuthInfra $auth)
     {
         $this->auth = $auth;
-        $this->baseUrl = $this->resolveBaseUrl($auth->getEnvironment());
+        $this->loteNFe = config('nfse.services.prefeitura_sao_paulo.loteNFe');
+        $this->loteNFeAsync = config('nfse.services.prefeitura_sao_paulo.loteNFeAsync');
     }
 
     /**
@@ -62,12 +62,12 @@ class NfseClient
      * @return array Retorno estruturado (status, protocolo, mensagem)
      * @throws Exception
      */
-    public function sendNfse(string $data, ?string $identificador = null): array
+    public function send(string $data, ?string $identificador = null): array
     {
         $xml = $this->parseXml($data);
-        $url = $this->endpoint('enviar_lote');
+        $url = $this->endpoint('send');
 
-        $response = $this->request('POST', $url, $xml);
+        $response = $this->request('GET', $url, $data);
 
         return $this->parseResponse($response, 'Envio de Lote');
     }
@@ -80,9 +80,9 @@ class NfseClient
      * @return array Retorno estruturado (status, protocolo, mensagem)
      * @throws Exception
      */
-    public function sendNfseBatch(array $xml, ?string $identificador = null): array
+    public function sendBatch(array $xml, ?string $identificador = null): array
     {
-        $url = $this->endpoint('enviar_lote');
+        $url = $this->endpoint('sendBatch');
         $response = $this->request('POST', $url, $xml);
 
         return $this->parseResponse($response, 'Envio de Lote');
@@ -95,9 +95,9 @@ class NfseClient
      * @return array
      * @throws Exception
      */
-    public function checkNfse(string $numero): array
+    public function check(string $numero): array
     {
-        $url = $this->endpoint('consultar_nfse', ['numero' => $numero]);
+        $url = $this->endpoint('check', ['numero' => $numero]);
 
         $response = $this->request('GET', $url);
 
@@ -111,9 +111,9 @@ class NfseClient
      * @return array
      * @throws Exception
      */
-    public function checkNfseBatch(string $protocolo): array
+    public function checkBatch(string $protocolo): array
     {
-        $url = $this->endpoint('consultar_lote', ['protocolo' => $protocolo]);
+        $url = $this->endpoint('checkBatch', ['protocolo' => $protocolo]);
 
         $response = $this->request('GET', $url);
 
@@ -128,9 +128,9 @@ class NfseClient
      * @return array
      * @throws Exception
      */
-    public function cancelNfse(string $numero, string $motivo): array
+    public function cancel(string $numero, string $motivo): array
     {
-        $url = $this->endpoint('cancelar_nfse', ['numero' => $numero]);
+        $url = $this->endpoint('cancel', ['numero' => $numero]);
 
         $xmlCancelamento = $this->montarXmlCancelamento($numero, $motivo);
 
@@ -150,20 +150,17 @@ class NfseClient
      */
     protected function request(string $method, string $url, ?string $body = null)
     {
-        $this->auth->authenticate();
-
         try {
             $options = [
                 'cert' => $this->auth->getPemPath(),
                 'ssl_key' => $this->auth->getPemPath(),
-                'verify' => true,
+                'verify' => config('nfse.certificate.cacert_path'),
                 'timeout' => $this->timeout,
             ];
 
             $headers = $this->auth->getHeaders();
 
-            $request = Http::withOptions($options)
-                ->withHeaders($headers);
+            $request = Http::withOptions($options)->withHeaders($headers);
 
             $response = $method === 'POST'
                 ? $request->send('POST', $this->baseUrl . $url, ['body' => $body])
@@ -262,18 +259,5 @@ class NfseClient
         }
 
         return $url;
-    }
-
-    /**
-     * Retorna a URL base de acordo com o ambiente.
-     *
-     * @param string $env
-     * @return string
-     */
-    protected function resolveBaseUrl(string $env): string
-    {
-        return $env === 'production'
-            ? config('nfe.services.prefeitura_sao_paulo.production')
-            : config('nfe.services.prefeitura_sao_paulo.homolog');
     }
 }

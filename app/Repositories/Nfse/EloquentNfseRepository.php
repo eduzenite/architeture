@@ -31,7 +31,7 @@ class EloquentNfseRepository implements NfseRepositoryInterface
         return Nfse::find($id);
     }
 
-    public function create(NfseCreateDTO $data): Nfse
+    public function create(array $data): Nfse
     {
         return Nfse::create($data);
     }
@@ -41,14 +41,14 @@ class EloquentNfseRepository implements NfseRepositoryInterface
         return Nfse::create($data);
     }
 
-    public function send(array $data): Nfse
+    public function send(array $data): array
     {
-        //
+        return [];
     }
 
-    public function sendBatch(array $data): NfseBatch
+    public function sendBatch(array $data): array
     {
-        //
+        return [];
     }
 
     public function update(int $id, array $data): ?Nfse
@@ -61,19 +61,19 @@ class EloquentNfseRepository implements NfseRepositoryInterface
         return $contract;
     }
 
-    public function check(int $id, array $data): ?Nfse
+    public function check(int $id, array $data): array
     {
-        //
+        return [];
     }
 
-    public function checkBatch(int $id, array $data): ?NfseBatch
+    public function checkBatch(int $id, array $data): array
     {
-        //
+        return [];
     }
 
-    public function cancel(int $id, array $data): ?Nfse
+    public function cancel(int $id, array $data): array
     {
-        //
+        return [];
     }
 
     public function delete(int $id): bool

@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\View;
  *
  * Essa classe NÃO envia requisições, apenas gera o conteúdo.
  */
-class NfseRequestBuilder
+class NfseRequestBuilderInfra
 {
     /**
      * Ambiente atual (homologação ou produção)

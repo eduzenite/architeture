@@ -3,13 +3,14 @@
 return [
     'environment' => env('NFSE_ENVIRONMENT', 'homolog'), // homolog or production
     'certificate' => [
-        'path' => env('NFSE_CERTIFICATE_PATH', storage_path('certificates/nfse_certificate.pfx')),
-        'password' => env('NFSE_CERTIFICATE_PASSWORD', ''),
+        'pem_path' => env('NFSE_PEM_PATH', storage_path('app/public/certificates/nfse_certificate.pem')),
+        'password' => env('NFSE_CERT_PASSWORD', ''),
+        'cacert_path' => env('NFSE_CACERT_PATH', storage_path('app/public/certificates/cacert.pem')),
     ],
     'services' => [
         'prefeitura_sao_paulo' => [
-            'homolog' => 'https://www.nfse.gov.br',
-            'production' => 'https://homologacao.nfse.gov.br',
+            'loteNFe' => 'https://nfe.prefeitura.sp.gov.br/ws/lotenfe.asmx?WSDL',
+            'loteNFeAsync' => 'https://nfews.prefeitura.sp.gov.br/lotenfeasync.asmx?WSDL',
         ],
     ],
 ];

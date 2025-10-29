@@ -2,80 +2,93 @@
 
 namespace App\Services\Nfse;
 
-use App\Infra\PrefeituraSaoPaulo\NfseResponseParser;
+use App\Infra\PrefeituraSaoPaulo\NfseClientInfra;
 use App\Repositories\Nfse\EloquentNfseRepository;
-use App\Repositories\Nfse\NfseRepositoryInterface;
-use Exception;
 
 class NfseService
 {
-    private EloquentNfseRepository $client;
+    private EloquentNfseRepository $clientRepository;
+    private NfseClientInfra $clientInfra;
 
-    public function __construct(NfseRepositoryInterface $client)
+    public function __construct(EloquentNfseRepository $clientRepository, NfseClientInfra $clientInfra)
     {
-        $this->client = $client;
+        $this->clientRepository = $clientRepository;
+        $this->clientInfra = $clientInfra;
     }
 
     /**
      * Envia uma NFSe individual (RPS único)
      */
-    public function create(string $invoice): NfseResponseParser
+    public function create(string $invoice): array
     {
-        $rawResponse = $this->client->create($invoice);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->create($invoice);
+        return $rawResponse;
     }
 
     /**
      * Envia um lote de NFSe (vários RPS)
      */
-    public function createBatch(array $loteDeNotas): NfseResponseParser
+    public function createBatch(array $loteDeNotas): array
     {
-        $rawResponse = $this->client->createBatch($loteDeNotas);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->createBatch($loteDeNotas);
+        return $rawResponse;
     }
 
     /**
      * Envia uma NFSe individual (RPS único)
      */
-    public function send(string $dados): NfseResponseParser
+    public function send(string $dados): array
     {
-        $rawResponse = $this->client->send($dados);
-        return new NfseResponseParser($rawResponse);
+        $dados = "<EnviarLoteRpsEnvio xmlns=\"http://www.prefeitura.sp.gov.br/nfse.xsd\">
+                        <LoteRps>
+                            <NumeroLote>1</NumeroLote>
+                            <Cnpj>12345678000195</Cnpj>
+                            <InscricaoMunicipal>12345678</InscricaoMunicipal>
+                            <QuantidadeRps>1</QuantidadeRps>
+                            <ListaRps>
+                                {$dados}
+                            </ListaRps>
+                        </LoteRps>
+                    </EnviarLoteRpsEnvio>";
+        $rawResponse = $this->clientInfra->send($dados);
+        return $rawResponse;
+//        $rawResponse = $this->client->send($dados);
+//        return $rawResponse;
     }
 
     /**
      * Envia um lote de NFSe (vários RPS)
      */
-    public function sendBatch(array $loteDeNotas): NfseResponseParser
+    public function sendBatch(array $loteDeNotas): array
     {
-        $rawResponse = $this->client->sendBatch($loteDeNotas);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->sendBatch($loteDeNotas);
+        return $rawResponse;
     }
 
     /**
      * Consulta uma NFSe emitida
      */
-    public function check(string $numeroNfse): NfseResponseParser
+    public function check(string $numeroNfse): array
     {
-        $rawResponse = $this->client->check($numeroNfse);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->check($numeroNfse);
+        return $rawResponse;
     }
 
     /**
      * Consulta um lote de RPS já enviado
      */
-    public function checkBatch(string $protocolo): NfseResponseParser
+    public function checkBatch(string $protocolo): array
     {
-        $rawResponse = $this->client->checkBatch($protocolo);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->checkBatch($protocolo);
+        return $rawResponse;
     }
 
     /**
      * Cancela uma NFSe
      */
-    public function cancel(string $numeroNfse, string $motivo): NfseResponseParser
+    public function cancel(string $numeroNfse, string $motivo): array
     {
-        $rawResponse = $this->client->cancel($numeroNfse, $motivo);
-        return new NfseResponseParser($rawResponse);
+        $rawResponse = $this->clientRepository->cancel($numeroNfse, $motivo);
+        return $rawResponse;
     }
 }

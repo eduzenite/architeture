@@ -4,7 +4,7 @@ namespace App\Infra\PrefeituraSaoPaulo;
 
 use Exception;
 
-class NfseEndpoints
+class NfseEndpointsInfra
 {
     /**
      * Ambiente atual (homologação ou produção)
