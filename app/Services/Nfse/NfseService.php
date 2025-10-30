@@ -2,18 +2,18 @@
 
 namespace App\Services\Nfse;
 
-use App\Infra\PrefeituraSaoPaulo\NfseClientInfra;
+use App\Infra\PrefeituraSaoPaulo\NfseSynchronousClientInfra;
 use App\Repositories\Nfse\EloquentNfseRepository;
 
 class NfseService
 {
     private EloquentNfseRepository $clientRepository;
-    private NfseClientInfra $clientInfra;
+    private NfseSynchronousClientInfra $synchronousClientInfra;
 
-    public function __construct(EloquentNfseRepository $clientRepository, NfseClientInfra $clientInfra)
+    public function __construct(EloquentNfseRepository $clientRepository, NfseSynchronousClientInfra $synchronousClientInfra)
     {
         $this->clientRepository = $clientRepository;
-        $this->clientInfra = $clientInfra;
+        $this->synchronousClientInfra = $synchronousClientInfra;
     }
 
     /**
@@ -37,23 +37,10 @@ class NfseService
     /**
      * Envia uma NFSe individual (RPS único)
      */
-    public function send(string $dados): array
+    public function send(string $nfseId): array
     {
-        $dados = "<EnviarLoteRpsEnvio xmlns=\"http://www.prefeitura.sp.gov.br/nfse.xsd\">
-                        <LoteRps>
-                            <NumeroLote>1</NumeroLote>
-                            <Cnpj>12345678000195</Cnpj>
-                            <InscricaoMunicipal>12345678</InscricaoMunicipal>
-                            <QuantidadeRps>1</QuantidadeRps>
-                            <ListaRps>
-                                {$dados}
-                            </ListaRps>
-                        </LoteRps>
-                    </EnviarLoteRpsEnvio>";
-        $rawResponse = $this->clientInfra->send($dados);
+        $rawResponse = $this->synchronousClientInfra->send($nfseId);
         return $rawResponse;
-//        $rawResponse = $this->client->send($dados);
-//        return $rawResponse;
     }
 
     /**
@@ -68,9 +55,16 @@ class NfseService
     /**
      * Consulta uma NFSe emitida
      */
-    public function check(string $numeroNfse): array
+    public function check(string $nfseNumber): array
     {
-        $rawResponse = $this->clientRepository->check($numeroNfse);
+        $cnpj = "17414457000145";
+        $municipalRegistration = "46666931";
+        $verificationCode = "XLBX-K7CR";
+
+        $rawResponse = $this->synchronousClientInfra->consultNFe($cnpj, $municipalRegistration, $nfseNumber, $verificationCode);
+
+
+//            ->consultNFe("17414457000145", "46666931", $nfseNumber, "XLBX-K7CR");
         return $rawResponse;
     }
 

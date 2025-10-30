@@ -2,6 +2,7 @@
 /node_modules
 /public/build
 /public/hot
+/public/deletar.html
 /public/storage
 /storage/*.key
 /storage/pail
