@@ -55,16 +55,12 @@ class NfseService
     /**
      * Consulta uma NFSe emitida
      */
-    public function check(string $nfseNumber): array
+    public function check(string $nfseId): array
     {
-        $cnpj = "17414457000145";
-        $municipalRegistration = "46666931";
+        $invoiceNumber = "01060162";
         $verificationCode = "XLBX-K7CR";
+        $rawResponse = $this->synchronousClientInfra->consultNFe($invoiceNumber, $verificationCode);
 
-        $rawResponse = $this->synchronousClientInfra->consultNFe($cnpj, $municipalRegistration, $nfseNumber, $verificationCode);
-
-
-//            ->consultNFe("17414457000145", "46666931", $nfseNumber, "XLBX-K7CR");
         return $rawResponse;
     }
 
