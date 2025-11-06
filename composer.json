@@ -15,7 +15,8 @@
         "livewire/volt": "^1.7.0",
         "robrichards/xmlseclibs": "^3.1",
         "ext-dom": "*",
-        "ext-openssl": "*"
+        "ext-openssl": "*",
+        "ext-soap": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

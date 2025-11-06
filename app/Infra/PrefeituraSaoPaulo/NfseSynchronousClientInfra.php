@@ -3,10 +3,11 @@
 namespace App\Infra\PrefeituraSaoPaulo;
 
 use DOMDocument;
-use DOMElement;
 use Exception;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
+use SoapClient;
+use SoapFault;
+use RobRichards\XMLSecLibs\XMLSecurityDSig;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
 
 class NfseSynchronousClientInfra
 {
@@ -19,6 +20,7 @@ class NfseSynchronousClientInfra
     protected string $cacertPath;
     protected string $cnpj;
     protected string $municipalRegistration;
+    protected SoapClient $client;
 
     public function __construct()
     {
@@ -31,6 +33,8 @@ class NfseSynchronousClientInfra
         $this->endpointNF = config("nfse.endpoint.NF");
         $this->endpointNFAsync = config("nfse.endpoint.NFAsync");
         $this->endpointNFTS = config("nfse.endpoint.NFTS");
+
+        $this->client = $this->createSoapClient($this->endpointNF);
     }
 
     /**
@@ -42,41 +46,95 @@ class NfseSynchronousClientInfra
     {
         $xml = $this->buildRpsXml($rpsData);
         $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
-
-        return $this->sendRequest($this->endpointNFAsync, 'EnvioLoteRPS', $signedXml);
+        return $this->callSoapMethod('EnvioRPS', $signedXml);
     }
 
     public function RPSBatchSubmission(array $rpsList): array
     {
         $xml = $this->buildRpsBatchXml($rpsList);
         $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
-        return $this->sendRequest($this->endpointNFAsync, 'EnvioLoteRPS', $signedXml);
+        return $this->callSoapMethod('EnvioLoteRPS', $signedXml);
     }
 
     public function RPSBatchSubmissionTest(array $rpsList): array
     {
         $xml = $this->buildRpsBatchXml($rpsList);
-        $signedXml = $this->signXml($xml, 'TesteEnvioLoteRPS');
-        return $this->sendRequest($this->endpointNFAsync, 'TesteEnvioLoteRPS', $signedXml);
+        $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
+        return $this->callSoapMethod('TesteEnvioLoteRPS', $signedXml);
     }
 
     public function NFeInquiry(string $invoiceNumber, string $verificationCode)
     {
         $xml = $this->buildNfeInquiryXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoConsultaNFe');
-        return $this->sendRequest($this->endpointNF, 'ConsultaNFe', $signedXml);
+        return $this->callSoapMethod('ConsultaNFe', $signedXml);
     }
 
     public function NFeCancellation(string $invoiceNumber, string $verificationCode): array
     {
         $xml = $this->buildCancelXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoCancelamentoNFe');
-        return $this->sendRequest($this->endpointNF, 'CancelamentoNFe', $signedXml);
+        return $this->callSoapMethod('CancelamentoNFe', $signedXml);
     }
 
     /**
      * =====================================================
-     * ASSINATURA DIGITAL - padrão XMLDSig Enveloped RSA-SHA1
+     * CONFIGURAÇÃO DO SOAP CLIENT
+     * =====================================================
+     */
+    protected function createSoapClient(string $wsdl): SoapClient
+    {
+        // contexto SSL com certificado e chave separados
+        $context = stream_context_create([
+            'ssl' => [
+                'local_cert' => $this->certPath,
+                'passphrase' => $this->certPass,
+                'cafile' => $this->cacertPath,
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'allow_self_signed' => false,
+                'local_pk' => $this->keyPath, // chave privada separada
+            ],
+        ]);
+
+        $options = [
+            'stream_context' => $context,
+            'trace' => true,
+            'exceptions' => true,
+            'cache_wsdl' => WSDL_CACHE_NONE,
+        ];
+
+        try {
+            return new SoapClient($wsdl, $options);
+        } catch (SoapFault $e) {
+            throw new Exception("Erro ao inicializar SoapClient: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * =====================================================
+     * EXECUTA O MÉTODO SOAP
+     * =====================================================
+     */
+    protected function callSoapMethod(string $method, string $xml): array
+    {
+        $params = [
+            'VersaoSchema' => '1',
+            'MensagemXML' => $xml,
+        ];
+
+        try {
+            $response = $this->client->__soapCall($method, [$params]);
+            $rawXml = $this->client->__getLastResponse();
+            return $this->parseResponse($rawXml);
+        } catch (SoapFault $e) {
+            throw new Exception("Erro ao consumir método SOAP {$method}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * =====================================================
+     * ASSINATURA DIGITAL - XMLDSig Enveloped RSA-SHA1
      * =====================================================
      */
     protected function signXml(string $xmlContent, string $tagToSign): string
@@ -86,77 +144,48 @@ class NfseSynchronousClientInfra
         $doc->formatOutput = false;
         $doc->loadXML($xmlContent, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
 
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->keyPath), $this->certPass);
-        $publicCert = file_get_contents($this->certPath);
+        $objDSig = new XMLSecurityDSig();
+        $objDSig->setCanonicalMethod(XMLSecurityDSig::C14N);
 
-        if (!$privateKey) {
-            throw new Exception("Erro ao carregar chave privada para assinatura XML");
+        $root = $doc->documentElement;
+
+        // Para PedidoConsultaNFe, usa referência vazia (documento inteiro)
+        if ($tagToSign === 'PedidoConsultaNFe') {
+            // URI vazia significa assinar o documento inteiro
+            $objDSig->addReference(
+                $root,
+                XMLSecurityDSig::SHA1,
+                ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::C14N],
+                ['uri' => '']  // URI vazia para assinar o documento inteiro
+            );
+        } else {
+            // Para outros elementos, mantém a lógica com Id
+            if (!$root->hasAttribute('Id')) {
+                $root->setAttribute('Id', $tagToSign . '_' . uniqid());
+            }
+
+            $objDSig->addReference(
+                $root,
+                XMLSecurityDSig::SHA1,
+                ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::C14N],
+                ['uri' => '#' . $root->getAttribute('Id')]
+            );
         }
 
-        $objDSig = new \RobRichards\XMLSecLibs\XMLSecurityDSig();
-        $objDSig->setCanonicalMethod(\RobRichards\XMLSecLibs\XMLSecurityDSig::C14N);
-        $objDSig->addReference(
-            $doc,
-            \RobRichards\XMLSecLibs\XMLSecurityDSig::SHA1,
-            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-            ['force_uri' => true]
-        );
-
-        $objKey = new \RobRichards\XMLSecLibs\XMLSecurityKey(
-            \RobRichards\XMLSecLibs\XMLSecurityKey::RSA_SHA1,
-            ['type' => 'private']
-        );
+        $objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, ['type' => 'private']);
         $objKey->loadKey($this->keyPath, true);
 
         $objDSig->sign($objKey);
-        $objDSig->add509Cert($publicCert, true, false, ['subjectName' => false]);
-        $objDSig->appendSignature($doc->documentElement);
+        $objDSig->add509Cert(file_get_contents($this->certPath));
+        $objDSig->appendSignature($root);
 
         return $doc->saveXML();
     }
 
-    /**
-     * =====================================================
-     * ENVIO DO XML AO ENDPOINT
-     * =====================================================
-     */
-    protected function sendRequest(string $endpoint, string $method, string $xml)
-    {
-        $soapBody = <<<XML
-            <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                             xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
-                <soap12:Body>
-                    <{$method} xmlns="http://www.prefeitura.sp.gov.br/nfe">
-                        <VersaoSchema>1</VersaoSchema>
-                        <MensagemXML><![CDATA[{$xml}]]></MensagemXML>
-                    </{$method}>
-                </soap12:Body>
-            </soap12:Envelope>
-        XML;
-
-        $client = new Client([
-            'verify' => $this->cacertPath,
-            'cert' => [$this->certPath, $this->certPass],
-            'ssl_key' => [$this->keyPath, $this->certPass],
-        ]);
-
-        try {
-            $response = $client->get($endpoint, [
-                'headers' => ['Content-Type' => 'application/soap+xml; charset=utf-8'],
-                'body' => $soapBody,
-            ]);
-
-//            return $this->parseResponse($response->getBody()->getContents());
-            return $response->getBody()->getContents();
-        } catch (GuzzleException $e) {
-            throw new Exception("Erro na requisição SOAP: " . $e->getMessage());
-        }
-    }
 
     /**
      * =====================================================
-     * PARSE DA RESPOSTA XML
+     * PARSE DA RESPOSTA XML SOAP
      * =====================================================
      */
     protected function parseResponse(string $xmlResponse): array
@@ -164,48 +193,51 @@ class NfseSynchronousClientInfra
         $dom = new DOMDocument();
         $dom->loadXML($xmlResponse);
 
-        $result = [];
         $body = $dom->getElementsByTagName('Body')->item(0);
-        if ($body) {
-            $result['raw'] = $dom->saveXML($body);
-        }
-
         $success = $dom->getElementsByTagName('Sucesso')->item(0);
-        $result['success'] = $success ? strtolower($success->nodeValue) === 'true' : false;
 
-        return $result;
+        return [
+            'success' => $success ? strtolower($success->nodeValue) === 'true' : false,
+            'raw' => $dom->saveXML($body),
+        ];
     }
 
     /**
      * =====================================================
-     * CONSTRUÇÃO DE XMLS DE PEDIDO (EXEMPLOS)
+     * CONSTRUÇÃO DE XMLS DE PEDIDO
      * =====================================================
      */
     protected function buildRpsXml(array $rpsData): string
     {
-        // Aqui você gera o XML conforme schema PedidoEnvioLoteRPS.xsd
-        return "<PedidoEnvioLoteRPS>...</PedidoEnvioLoteRPS>";
+        return "<PedidoEnvioLoteRPS xmlns='http://www.prefeitura.sp.gov.br/nfe'>...</PedidoEnvioLoteRPS>";
     }
 
     protected function buildRpsBatchXml(array $rpsList): string
     {
-        return "<PedidoEnvioLoteRPS>...</PedidoEnvioLoteRPS>";
+        return "<PedidoEnvioLoteRPS xmlns='http://www.prefeitura.sp.gov.br/nfe'>...</PedidoEnvioLoteRPS>";
     }
 
     protected function buildNfeInquiryXml(string $invoiceNumber, string $verificationCode): string
     {
+        // Remove caracteres inválidos e limita a 8 caracteres
+        $verificationCode = substr(preg_replace('/[^A-Za-z0-9]/', '', $verificationCode), 0, 8);
+
         return <<<XML
-            <PedidoConsultaNFe xmlns="http://www.prefeitura.sp.gov.br/nfe">
-                <Cabecalho>
-                    <Versao>1</Versao>
-                    <CNPJRemetente>{$this->cnpj}</CNPJRemetente>
-                </Cabecalho>
-                <Detalhe>
-                    <ChaveNFe>{$invoiceNumber}</ChaveNFe>
-                    <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
-                </Detalhe>
-            </PedidoConsultaNFe>
-        XML;
+                <PedidoConsultaNFe xmlns="http://www.prefeitura.sp.gov.br/nfe">
+                    <Cabecalho Versao="1" xmlns="">
+                        <CPFCNPJRemetente>
+                            <CNPJ>{$this->cnpj}</CNPJ>
+                        </CPFCNPJRemetente>
+                    </Cabecalho>
+                    <Detalhe xmlns="">
+                        <ChaveNFe>
+                            <InscricaoPrestador>{$this->municipalRegistration}</InscricaoPrestador>
+                            <NumeroNFe>{$invoiceNumber}</NumeroNFe>
+                            <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
+                        </ChaveNFe>
+                    </Detalhe>
+                </PedidoConsultaNFe>
+            XML;
     }
 
     protected function buildCancelXml(string $invoiceNumber, string $verificationCode): string
@@ -217,8 +249,11 @@ class NfseSynchronousClientInfra
                     <CNPJRemetente>{$this->cnpj}</CNPJRemetente>
                 </Cabecalho>
                 <Detalhe>
-                    <ChaveNFe>{$invoiceNumber}</ChaveNFe>
-                    <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
+                    <ChaveNFe>
+                        <InscricaoPrestador>{$this->municipalRegistration}</InscricaoPrestador>
+                        <Numero>{$invoiceNumber}</Numero>
+                        <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
+                    </ChaveNFe>
                 </Detalhe>
             </PedidoCancelamentoNFe>
         XML;

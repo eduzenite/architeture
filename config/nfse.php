@@ -8,9 +8,9 @@ return [
         'cacertPath' => env('NFSE_CACERT_PATH', storage_path('app/public/certificates/cacert.pem')),
     ],
     'endpoint' => [
-        'NF' => env('NFSE_ENDPOINT_NF', 'https://nfe.prefeitura.sp.gov.br/ws/lotenfe.asmx'),
-        'NFAsync' => env('NFSE_ENDPOINT_NF_ASYNC', 'https://nfe.prefeitura.sp.gov.br/ws/lotenfe.asmx'),
-        'NFTS' => env('NFSE_ENDPOINT_NFTS', 'https://nfe.prefeitura.sp.gov.br/ws/consultacnpj.asmx'),
+        'NF' => 'https://nfe.prefeitura.sp.gov.br/ws/lotenfe.asmx?WSDL',
+        'NFAsync' => 'https://nfe.prefeitura.sp.gov.br/ws/lotenfeasync.asmx?WSDL',
+        'NFTS' => 'https://nfe.prefeitura.sp.gov.br/ws/nfts.asmx?WSDL',
     ],
     'company' => [
         'cnpj' => env('NFSE_COMPANY_CNPJ'),
