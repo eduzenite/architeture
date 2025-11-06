@@ -27,20 +27,40 @@ class XmlSigner
      */
     public function signXml(string $xml, string $tagToSign = 'Pedido'): string
     {
-        // Carrega o certificado
+        // Carrega o certificado PEM
+        if (!file_exists($this->certPath)) {
+            throw new Exception("Arquivo de certificado não encontrado: {$this->certPath}");
+        }
+
         $certContent = file_get_contents($this->certPath);
         if (!$certContent) {
             throw new Exception("Não foi possível ler o certificado em: {$this->certPath}");
         }
 
-        // Extrai chave privada e certificado público
-        $certData = [];
-        if (!openssl_pkcs12_read($certContent, $certData, $this->certPass)) {
-            throw new Exception("Erro ao ler certificado PKCS12. Verifique a senha.");
+        // Verifica se é PEM
+        if (strpos($certContent, '-----BEGIN') === false) {
+            throw new Exception("O certificado deve estar no formato PEM");
         }
 
-        $privateKey = $certData['pkey'];
-        $publicCert = $certData['cert'];
+        \Log::info('Carregando certificado PEM', [
+            'path' => $this->certPath,
+            'file_size' => strlen($certContent)
+        ]);
+
+        // Carrega a chave privada
+        $privateKey = openssl_pkey_get_private($certContent, $this->certPass);
+        if (!$privateKey) {
+            $error = openssl_error_string();
+            throw new Exception("Não foi possível ler a chave privada do certificado PEM. OpenSSL Error: " . ($error ?: 'Desconhecido'));
+        }
+
+        // Extrai o certificado público do arquivo PEM
+        $publicCert = $this->extractPublicCert($certContent);
+        if (!$publicCert) {
+            throw new Exception("Não foi possível extrair o certificado público do arquivo PEM");
+        }
+
+        \Log::info('Certificado PEM carregado com sucesso');
 
         // Carrega o XML
         $dom = new DOMDocument('1.0', 'UTF-8');
@@ -187,5 +207,20 @@ XML;
         if (isset($issuer['C'])) $parts[] = "C={$issuer['C']}";
 
         return implode(', ', $parts);
+    }
+
+    /**
+     * Extrai o certificado público do arquivo PEM
+     */
+    protected function extractPublicCert(string $pemContent): string|false
+    {
+        // Procura pelo certificado no arquivo PEM
+        preg_match('/-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----/s', $pemContent, $matches);
+
+        if (isset($matches[0])) {
+            return $matches[0];
+        }
+
+        return false;
     }
 }

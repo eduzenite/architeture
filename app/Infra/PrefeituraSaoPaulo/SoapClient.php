@@ -4,16 +4,19 @@ namespace App\Infra\PrefeituraSaoPaulo;
 
 use GuzzleHttp\Client;
 use Exception;
+use GuzzleHttp\Exception\RequestException;
 
 class SoapClient
 {
     protected string $certPath;
+    protected string $keyPath;
     protected string $certPass;
     protected string $cacertPath;
 
-    public function __construct(string $certPath, string $certPass, string $cacertPath)
+    public function __construct(string $certPath, string $keyPath, string $certPass, string $cacertPath)
     {
         $this->certPath = $certPath;
+        $this->keyPath = $keyPath;
         $this->certPass = $certPass;
         $this->cacertPath = $cacertPath;
     }
@@ -29,21 +32,27 @@ class SoapClient
      */
     public function sendRequest(string $endpoint, string $soapAction, string $xmlBody): string
     {
-        // Monta o envelope SOAP
         $soapEnvelope = $this->buildSoapEnvelope($xmlBody);
 
-        // Converte certificado PKCS12 para PEM temporariamente
-        $tempPemPath = $this->convertCertToPem();
+        if (!file_exists($this->certPath)) {
+            throw new Exception("Arquivo de certificado não encontrado: {$this->certPath}");
+        }
+
+        if (!file_exists($this->keyPath)) {
+            throw new Exception("Arquivo de chave privada não encontrado: {$this->keyPath}");
+        }
 
         try {
             $client = new Client([
                 'verify' => $this->cacertPath,
-                'cert' => [$tempPemPath, $this->certPass],
+                'cert' => $this->certPath,
+                'ssl_key' => [$this->keyPath, $this->certPass],
                 'headers' => [
                     'Content-Type' => 'text/xml; charset=utf-8',
                     'SOAPAction' => $soapAction,
                 ],
                 'timeout' => 30,
+                'debug' => false, // Ative para debug: true
             ]);
 
             $response = $client->post($endpoint, [
@@ -52,14 +61,9 @@ class SoapClient
 
             $responseBody = (string) $response->getBody();
 
-            // Remove arquivo temporário
-            @unlink($tempPemPath);
-
             return $this->extractSoapBody($responseBody);
 
-        } catch (\GuzzleHttp\Exception\RequestException $e) {
-            @unlink($tempPemPath);
-
+        } catch (RequestException $e) {
             $errorMessage = $e->getMessage();
             if ($e->hasResponse()) {
                 $errorBody = (string) $e->getResponse()->getBody();
@@ -103,25 +107,5 @@ XML;
         }
 
         return $soapResponse;
-    }
-
-    /**
-     * Converte certificado PKCS12 para PEM temporário
-     */
-    protected function convertCertToPem(): string
-    {
-        $certContent = file_get_contents($this->certPath);
-        $certData = [];
-
-        if (!openssl_pkcs12_read($certContent, $certData, $this->certPass)) {
-            throw new Exception("Erro ao converter certificado para PEM");
-        }
-
-        $pemContent = $certData['cert'] . "\n" . $certData['pkey'];
-
-        $tempPath = sys_get_temp_dir() . '/cert_' . uniqid() . '.pem';
-        file_put_contents($tempPath, $pemContent);
-
-        return $tempPath;
     }
 }
