@@ -8,11 +8,11 @@ use SoapClient;
 use SoapFault;
 use RobRichards\XMLSecLibs\XMLSecurityDSig;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
+use GuzzleHttp\Client;
 
 class NfseSynchronousClientInfra
 {
     protected string $endpointNF;
-    protected string $endpointNFAsync;
     protected string $endpointNFTS;
     protected string $certPath;
     protected string $keyPath;
@@ -31,7 +31,6 @@ class NfseSynchronousClientInfra
         $this->cnpj = config("nfse.company.cnpj");
         $this->municipalRegistration = config("nfse.company.municipalRegistration");
         $this->endpointNF = config("nfse.endpoint.NF");
-        $this->endpointNFAsync = config("nfse.endpoint.NFAsync");
         $this->endpointNFTS = config("nfse.endpoint.NFTS");
     }
 
@@ -39,26 +38,25 @@ class NfseSynchronousClientInfra
     {
         $xml = $this->buildRpsXml($rpsData);
         $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
-        return $this->callSoapMethod('EnvioRPS', $signedXml);
+        return $this->callSoapMethod('EnvioRPS', $signedXml, $this->endpointNF);
     }
 
     public function RPSBatchSubmission(array $rpsList): array
     {
         $xml = $this->buildRpsBatchXml($rpsList);
         $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
-        return $this->callSoapMethod('EnvioLoteRPS', $signedXml);
+        return $this->callSoapMethod('EnvioLoteRPS', $signedXml, $this->endpointNF);
     }
 
     public function RPSBatchSubmissionTest(array $rpsList): array
     {
         $xml = $this->buildRpsBatchXml($rpsList);
         $signedXml = $this->signXml($xml, 'PedidoEnvioLoteRPS');
-        return $this->callSoapMethod('TesteEnvioLoteRPS', $signedXml);
+        return $this->callSoapMethod('TesteEnvioLoteRPS', $signedXml, $this->endpointNF);
     }
 
     public function NFeInquiry(string $invoiceNumber, string $verificationCode)
     {
-        $this->client = $this->createSoapClient($this->endpointNF);
         $xml = $this->buildNfeInquiryXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoConsultaNFe');
         return $this->callSoapMethod('ConsultaNFeEmitidasRequest', $signedXml, $this->endpointNF);
@@ -68,41 +66,7 @@ class NfseSynchronousClientInfra
     {
         $xml = $this->buildCancelXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoCancelamentoNFe');
-        return $this->callSoapMethod('CancelamentoNFe', $signedXml);
-    }
-
-    /**
-     * =====================================================
-     * CONFIGURAÇÃO DO SOAP CLIENT
-     * =====================================================
-     */
-    protected function createSoapClient(string $wsdl): SoapClient
-    {
-        // contexto SSL com certificado e chave separados
-        $context = stream_context_create([
-            'ssl' => [
-                'local_cert' => $this->certPath,
-                'passphrase' => $this->certPass,
-                'cafile' => $this->cacertPath,
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-                'allow_self_signed' => false,
-                'local_pk' => $this->keyPath, // chave privada separada
-            ],
-        ]);
-
-        $options = [
-            'stream_context' => $context,
-            'trace' => true,
-            'exceptions' => true,
-            'cache_wsdl' => WSDL_CACHE_NONE,
-        ];
-
-        try {
-            return new SoapClient($wsdl, $options);
-        } catch (SoapFault $e) {
-            throw new Exception("Erro ao inicializar SoapClient: " . $e->getMessage());
-        }
+        return $this->callSoapMethod('CancelamentoNFe', $signedXml, $this->endpointNF);
     }
 
     /**
@@ -131,27 +95,44 @@ class NfseSynchronousClientInfra
         $versao = $dom->createElement('VersaoSchema', '1');
         $methodElement->appendChild($versao);
 
-        // <MensagemXML></MensagemXML>
+        // <MensagemXML></MensagemXML> Sem serialize
+//        $mensagemXml = $dom->createElement('MensagemXML');
+//        $xmlFragment = new DOMDocument();
+//        $xmlFragment->loadXML($xml, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
+//        $imported = $dom->importNode($xmlFragment->documentElement, true);
+//        $mensagemXml->appendChild($imported);
+//        $methodElement->appendChild($mensagemXml);
+
+        // <MensagemXML></MensagemXML> Com serialize
         $mensagemXml = $dom->createElement('MensagemXML');
-        $xmlFragment = new DOMDocument();
-        $xmlFragment->loadXML($xml, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
-        $imported = $dom->importNode($xmlFragment->documentElement, true);
-        $mensagemXml->appendChild($imported);
+        $cdata = $dom->createCDATASection($xml);
+        $mensagemXml->appendChild($cdata);
         $methodElement->appendChild($mensagemXml);
 
         // Converte o DOM em string XML
-        $soapEnvelope = $dom->saveXML();
+        $xml = $dom->saveXML();
+//        echo $xml;
+//        die();
+
+        $client = new Client([
+            'verify' => false,
+            'cert' => $this->certPath,
+            'ssl_key' => $this->keyPath,
+            'timeout' => 60,
+        ]);
 
         try {
-            $action = "http://www.prefeitura.sp.gov.br/nfe/{$method}";
-            $responseXml = $this->client->__doRequest(
-                $soapEnvelope,
-                $endpoint,
-                $action,
-                SOAP_1_2
-            );
+            $response = $client->post($endpoint, [
+                'headers' => [
+                    'Content-Type' => 'text/xml; charset=utf-8',
+                    'SOAPAction'   => "http://www.prefeitura.sp.gov.br/nfe/$method",
+                ],
+                'body' => $xml,
+            ]);
 
-            return $this->parseResponse($responseXml);
+            $body = (string) $response->getBody();
+
+            return [$body];
         } catch (SoapFault $e) {
             throw new Exception("Erro ao consumir método SOAP {$method}: " . $e->getMessage());
         } catch (Exception $e) {
