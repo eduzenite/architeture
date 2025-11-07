@@ -33,15 +33,8 @@ class NfseSynchronousClientInfra
         $this->endpointNF = config("nfse.endpoint.NF");
         $this->endpointNFAsync = config("nfse.endpoint.NFAsync");
         $this->endpointNFTS = config("nfse.endpoint.NFTS");
-
-        $this->client = $this->createSoapClient($this->endpointNF);
     }
 
-    /**
-     * =====================================================
-     * MÉTODOS PÚBLICOS DE CONSUMO DOS SERVIÇOS
-     * =====================================================
-     */
     public function RPSSubmission(array $rpsData): array
     {
         $xml = $this->buildRpsXml($rpsData);
@@ -65,9 +58,10 @@ class NfseSynchronousClientInfra
 
     public function NFeInquiry(string $invoiceNumber, string $verificationCode)
     {
+        $this->client = $this->createSoapClient($this->endpointNF);
         $xml = $this->buildNfeInquiryXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoConsultaNFe');
-        return $this->callSoapMethod('ConsultaNFe', $signedXml);
+        return $this->callSoapMethod('ConsultaNFeEmitidasRequest', $signedXml, $this->endpointNF);
     }
 
     public function NFeCancellation(string $invoiceNumber, string $verificationCode): array
@@ -116,21 +110,55 @@ class NfseSynchronousClientInfra
      * EXECUTA O MÉTODO SOAP
      * =====================================================
      */
-    protected function callSoapMethod(string $method, string $xml): array
+    protected function callSoapMethod(string $method, string $xml, string $endpoint): array
     {
-        $params = [
-            'VersaoSchema' => '1',
-            'MensagemXML' => $xml,
-        ];
+        $dom = new DOMDocument('1.0', 'utf-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        $envelope = $dom->createElementNS('http://schemas.xmlsoap.org/soap/envelope/', 'soap:Envelope');
+        $envelope->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        $envelope->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsd', 'http://www.w3.org/2001/XMLSchema');
+        $dom->appendChild($envelope);
+
+        $body = $dom->createElement('soap:Body');
+        $envelope->appendChild($body);
+
+        $methodElement = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', $method);
+        $body->appendChild($methodElement);
+
+        // <VersaoSchema>1</VersaoSchema>
+        $versao = $dom->createElement('VersaoSchema', '1');
+        $methodElement->appendChild($versao);
+
+        // <MensagemXML></MensagemXML>
+        $mensagemXml = $dom->createElement('MensagemXML');
+        $xmlFragment = new DOMDocument();
+        $xmlFragment->loadXML($xml, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
+        $imported = $dom->importNode($xmlFragment->documentElement, true);
+        $mensagemXml->appendChild($imported);
+        $methodElement->appendChild($mensagemXml);
+
+        // Converte o DOM em string XML
+        $soapEnvelope = $dom->saveXML();
 
         try {
-            $response = $this->client->__soapCall($method, [$params]);
-            $rawXml = $this->client->__getLastResponse();
-            return $this->parseResponse($rawXml);
+            $action = "http://www.prefeitura.sp.gov.br/nfe/{$method}";
+            $responseXml = $this->client->__doRequest(
+                $soapEnvelope,
+                $endpoint,
+                $action,
+                SOAP_1_2
+            );
+
+            return $this->parseResponse($responseXml);
         } catch (SoapFault $e) {
             throw new Exception("Erro ao consumir método SOAP {$method}: " . $e->getMessage());
+        } catch (Exception $e) {
+            throw new Exception("Erro inesperado ao processar {$method}: " . $e->getMessage());
         }
     }
+
 
     /**
      * =====================================================
@@ -156,7 +184,7 @@ class NfseSynchronousClientInfra
                 $root,
                 XMLSecurityDSig::SHA1,
                 ['http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::C14N],
-                ['uri' => '']  // URI vazia para assinar o documento inteiro
+                ['uri' => '']
             );
         } else {
             // Para outros elementos, mantém a lógica com Id
@@ -184,9 +212,9 @@ class NfseSynchronousClientInfra
 
 
     /**
-     * =====================================================
+     * ===============================================================================================================================================================
      * PARSE DA RESPOSTA XML SOAP
-     * =====================================================
+     * ===============================================================================================================================================================
      */
     protected function parseResponse(string $xmlResponse): array
     {
@@ -203,59 +231,243 @@ class NfseSynchronousClientInfra
     }
 
     /**
-     * =====================================================
+     * ===============================================================================================================================================================
      * CONSTRUÇÃO DE XMLS DE PEDIDO
-     * =====================================================
+     * ===============================================================================================================================================================
      */
     protected function buildRpsXml(array $rpsData): string
     {
-        return "<PedidoEnvioLoteRPS xmlns='http://www.prefeitura.sp.gov.br/nfe'>...</PedidoEnvioLoteRPS>";
+        $dom = new DOMDocument('1.0', 'utf-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        $root = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', 'PedidoEnvioLoteRPS');
+        $dom->appendChild($root);
+
+        // ===== Cabeçalho =====
+        $cabecalho = $dom->createElement('Cabecalho');
+        $cabecalho->setAttribute('Versao', '1');
+        $root->appendChild($cabecalho);
+
+        $cpfCnpjRemetente = $dom->createElement('CPFCNPJRemetente');
+        $cnpj = $dom->createElement('CNPJ', $this->cnpj);
+        $cpfCnpjRemetente->appendChild($cnpj);
+        $cabecalho->appendChild($cpfCnpjRemetente);
+
+        $transacao = $dom->createElement('Transacao', 'false');
+        $cabecalho->appendChild($transacao);
+
+        $dtInicio = $dom->createElement('DtInicio', date('Y-m-d'));
+        $cabecalho->appendChild($dtInicio);
+
+        $dtFim = $dom->createElement('DtFim', date('Y-m-d'));
+        $cabecalho->appendChild($dtFim);
+
+        $qtdeRPS = $dom->createElement('QtdRPS', '1');
+        $cabecalho->appendChild($qtdeRPS);
+
+        // ===== RPS =====
+        $lote = $dom->createElement('RPS');
+        $root->appendChild($lote);
+
+        $identificacao = $dom->createElement('IdentificacaoRPS');
+        $numero = $dom->createElement('Numero', $rpsData['numero']);
+        $serie = $dom->createElement('Serie', $rpsData['serie']);
+        $tipo = $dom->createElement('Tipo', 'RPS');
+        $identificacao->appendChild($numero);
+        $identificacao->appendChild($serie);
+        $identificacao->appendChild($tipo);
+        $lote->appendChild($identificacao);
+
+        $dataEmissao = $dom->createElement('DataEmissao', $rpsData['dataEmissao']);
+        $lote->appendChild($dataEmissao);
+
+        $valorServicos = $dom->createElement('ValorServicos', number_format($rpsData['valorServicos'], 2, '.', ''));
+        $lote->appendChild($valorServicos);
+
+        $codigoServico = $dom->createElement('CodigoServico', $rpsData['codigoServico']);
+        $lote->appendChild($codigoServico);
+
+        // Tomador
+        $tomador = $dom->createElement('Tomador');
+        $cpfCnpjTomador = $dom->createElement('CPFCNPJ');
+        $cnpjTomador = $dom->createElement('CNPJ', $rpsData['cnpjTomador']);
+        $cpfCnpjTomador->appendChild($cnpjTomador);
+        $tomador->appendChild($cpfCnpjTomador);
+
+        $razao = $dom->createElement('RazaoSocial', $rpsData['razaoSocialTomador']);
+        $tomador->appendChild($razao);
+
+        $email = $dom->createElement('Email', $rpsData['emailTomador']);
+        $tomador->appendChild($email);
+
+        $lote->appendChild($tomador);
+
+        $discriminacao = $dom->createElement('Discriminacao', htmlspecialchars($rpsData['discriminacao']));
+        $lote->appendChild($discriminacao);
+
+        return $dom->saveXML();
     }
 
     protected function buildRpsBatchXml(array $rpsList): string
     {
-        return "<PedidoEnvioLoteRPS xmlns='http://www.prefeitura.sp.gov.br/nfe'>...</PedidoEnvioLoteRPS>";
+        $dom = new DOMDocument('1.0', 'utf-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        $root = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', 'PedidoEnvioLoteRPS');
+        $dom->appendChild($root);
+
+        // ===== Cabeçalho =====
+        $cabecalho = $dom->createElement('Cabecalho');
+        $cabecalho->setAttribute('Versao', '1');
+        $root->appendChild($cabecalho);
+
+        $cpfCnpjRemetente = $dom->createElement('CPFCNPJRemetente');
+        $cnpj = $dom->createElement('CNPJ', $this->cnpj);
+        $cpfCnpjRemetente->appendChild($cnpj);
+        $cabecalho->appendChild($cpfCnpjRemetente);
+
+        $transacao = $dom->createElement('Transacao', 'false');
+        $cabecalho->appendChild($transacao);
+
+        $dtInicio = $dom->createElement('DtInicio', date('Y-m-d'));
+        $cabecalho->appendChild($dtInicio);
+
+        $dtFim = $dom->createElement('DtFim', date('Y-m-d'));
+        $cabecalho->appendChild($dtFim);
+
+        $qtdeRPS = $dom->createElement('QtdRPS', count($rpsList));
+        $cabecalho->appendChild($qtdeRPS);
+
+        // ===== Lote de RPS =====
+        foreach ($rpsList as $rpsData) {
+            $rps = $dom->createElement('RPS');
+            $root->appendChild($rps);
+
+            $identificacao = $dom->createElement('IdentificacaoRPS');
+            $numero = $dom->createElement('Numero', $rpsData['numero']);
+            $serie = $dom->createElement('Serie', $rpsData['serie']);
+            $tipo = $dom->createElement('Tipo', 'RPS');
+            $identificacao->appendChild($numero);
+            $identificacao->appendChild($serie);
+            $identificacao->appendChild($tipo);
+            $rps->appendChild($identificacao);
+
+            $dataEmissao = $dom->createElement('DataEmissao', $rpsData['dataEmissao']);
+            $rps->appendChild($dataEmissao);
+
+            $valorServicos = $dom->createElement('ValorServicos', number_format($rpsData['valorServicos'], 2, '.', ''));
+            $rps->appendChild($valorServicos);
+
+            $codigoServico = $dom->createElement('CodigoServico', $rpsData['codigoServico']);
+            $rps->appendChild($codigoServico);
+
+            // Tomador
+            $tomador = $dom->createElement('Tomador');
+            $cpfCnpjTomador = $dom->createElement('CPFCNPJ');
+            $cnpjTomador = $dom->createElement('CNPJ', $rpsData['cnpjTomador']);
+            $cpfCnpjTomador->appendChild($cnpjTomador);
+            $tomador->appendChild($cpfCnpjTomador);
+
+            $razao = $dom->createElement('RazaoSocial', $rpsData['razaoSocialTomador']);
+            $tomador->appendChild($razao);
+
+            $email = $dom->createElement('Email', $rpsData['emailTomador']);
+            $tomador->appendChild($email);
+
+            $rps->appendChild($tomador);
+
+            $discriminacao = $dom->createElement('Discriminacao', htmlspecialchars($rpsData['discriminacao']));
+            $rps->appendChild($discriminacao);
+        }
+
+        return $dom->saveXML();
     }
 
     protected function buildNfeInquiryXml(string $invoiceNumber, string $verificationCode): string
     {
-        // Remove caracteres inválidos e limita a 8 caracteres
+        // Sanitiza o código de verificação (apenas letras/números e máximo 8 caracteres)
         $verificationCode = substr(preg_replace('/[^A-Za-z0-9]/', '', $verificationCode), 0, 8);
 
-        return <<<XML
-                <PedidoConsultaNFe xmlns="http://www.prefeitura.sp.gov.br/nfe">
-                    <Cabecalho Versao="1" xmlns="">
-                        <CPFCNPJRemetente>
-                            <CNPJ>{$this->cnpj}</CNPJ>
-                        </CPFCNPJRemetente>
-                    </Cabecalho>
-                    <Detalhe xmlns="">
-                        <ChaveNFe>
-                            <InscricaoPrestador>{$this->municipalRegistration}</InscricaoPrestador>
-                            <NumeroNFe>{$invoiceNumber}</NumeroNFe>
-                            <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
-                        </ChaveNFe>
-                    </Detalhe>
-                </PedidoConsultaNFe>
-            XML;
+        $dom = new DOMDocument('1.0', 'utf-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        // ===== Elemento raiz =====
+        $root = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', 'PedidoConsultaNFe');
+        $dom->appendChild($root);
+
+        // ===== Cabeçalho =====
+        $cabecalho = $dom->createElement('Cabecalho');
+        $cabecalho->setAttribute('Versao', '1');
+        $root->appendChild($cabecalho);
+
+        $cpfCnpjRemetente = $dom->createElement('CPFCNPJRemetente');
+        $cabecalho->appendChild($cpfCnpjRemetente);
+
+        $cnpj = $dom->createElement('CNPJ', $this->cnpj);
+        $cpfCnpjRemetente->appendChild($cnpj);
+
+        // ===== Detalhe =====
+        $detalhe = $dom->createElement('Detalhe');
+        $root->appendChild($detalhe);
+
+        $chaveNFe = $dom->createElement('ChaveNFe');
+        $detalhe->appendChild($chaveNFe);
+
+        $inscricao = $dom->createElement('InscricaoPrestador', $this->municipalRegistration);
+        $chaveNFe->appendChild($inscricao);
+
+        $numeroNFe = $dom->createElement('NumeroNFe', $invoiceNumber);
+        $chaveNFe->appendChild($numeroNFe);
+
+        $codigoVerificacao = $dom->createElement('CodigoVerificacao', $verificationCode);
+        $chaveNFe->appendChild($codigoVerificacao);
+
+        return $dom->saveXML();
     }
+
 
     protected function buildCancelXml(string $invoiceNumber, string $verificationCode): string
     {
-        return <<<XML
-            <PedidoCancelamentoNFe xmlns="http://www.prefeitura.sp.gov.br/nfe">
-                <Cabecalho>
-                    <Versao>1</Versao>
-                    <CNPJRemetente>{$this->cnpj}</CNPJRemetente>
-                </Cabecalho>
-                <Detalhe>
-                    <ChaveNFe>
-                        <InscricaoPrestador>{$this->municipalRegistration}</InscricaoPrestador>
-                        <Numero>{$invoiceNumber}</Numero>
-                        <CodigoVerificacao>{$verificationCode}</CodigoVerificacao>
-                    </ChaveNFe>
-                </Detalhe>
-            </PedidoCancelamentoNFe>
-        XML;
+        $dom = new DOMDocument('1.0', 'utf-8');
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = false;
+
+        // Elemento raiz
+        $root = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', 'PedidoCancelamentoNFe');
+        $dom->appendChild($root);
+
+        // ===== Cabeçalho =====
+        $cabecalho = $dom->createElement('Cabecalho');
+        $cabecalho->setAttribute('Versao', '1');
+        $root->appendChild($cabecalho);
+
+        $cpfCnpj = $dom->createElement('CPFCNPJRemetente');
+        $cabecalho->appendChild($cpfCnpj);
+
+        $cnpj = $dom->createElement('CNPJ', $this->cnpj);
+        $cpfCnpj->appendChild($cnpj);
+
+        // ===== Detalhe =====
+        $detalhe = $dom->createElement('Detalhe');
+        $root->appendChild($detalhe);
+
+        $chaveNfe = $dom->createElement('ChaveNFe');
+        $detalhe->appendChild($chaveNfe);
+
+        $inscricao = $dom->createElement('InscricaoPrestador', $this->municipalRegistration);
+        $chaveNfe->appendChild($inscricao);
+
+        $numero = $dom->createElement('NumeroNFe', $invoiceNumber);
+        $chaveNfe->appendChild($numero);
+
+        // Código de verificação — garantindo que não ultrapasse 8 caracteres
+        $verificationCode = substr(preg_replace('/[^A-Za-z0-9]/', '', $verificationCode), 0, 8);
+        $codigo = $dom->createElement('CodigoVerificacao', $verificationCode);
+        $chaveNfe->appendChild($codigo);
+
+        return $dom->saveXML();
     }
 }
