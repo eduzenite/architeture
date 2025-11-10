@@ -16,5 +16,4 @@ return [
         'cnpj' => env('NFSE_COMPANY_CNPJ'),
         'municipalRegistration' => env('NFSE_COMPANY_MUNICIPAL_REGISTRATION'),
     ],
-    'homologation' => env('NFSE_HOMOLOGACAO', false),
 ];

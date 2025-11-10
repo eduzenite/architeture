@@ -57,8 +57,8 @@ class NfseService
      */
     public function check(string $nfseId)
     {
-        $invoiceNumber = "01060162";
-        $verificationCode = "XLBX-K7CR";
+        $invoiceNumber = "1060162";
+        $verificationCode = "XLBXK7CR";
         $rawResponse = $this->synchronousClientInfra->NFeInquiry($invoiceNumber, $verificationCode);
 
         return $rawResponse;

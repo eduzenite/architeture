@@ -5,10 +5,10 @@ namespace App\Infra\PrefeituraSaoPaulo;
 use DOMDocument;
 use Exception;
 use SoapClient;
-use SoapFault;
 use RobRichards\XMLSecLibs\XMLSecurityDSig;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 
 class NfseSynchronousClientInfra
 {
@@ -59,7 +59,7 @@ class NfseSynchronousClientInfra
     {
         $xml = $this->buildNfeInquiryXml($invoiceNumber, $verificationCode);
         $signedXml = $this->signXml($xml, 'PedidoConsultaNFe');
-        return $this->callSoapMethod('ConsultaNFeEmitidasRequest', $signedXml, $this->endpointNF);
+        return $this->callSoapMethod('ConsultaNFeRequest', $signedXml, $this->endpointNF);
     }
 
     public function NFeCancellation(string $invoiceNumber, string $verificationCode): array
@@ -80,33 +80,28 @@ class NfseSynchronousClientInfra
         $dom->preserveWhiteSpace = false;
         $dom->formatOutput = false;
 
-        $envelope = $dom->createElementNS('http://schemas.xmlsoap.org/soap/envelope/', 'soap:Envelope');
+        $envelope = $dom->createElementNS('http://www.w3.org/2003/05/soap-envelope', 'soap12:Envelope');
         $envelope->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
         $envelope->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xsd', 'http://www.w3.org/2001/XMLSchema');
         $dom->appendChild($envelope);
 
-        $body = $dom->createElement('soap:Body');
+        $body = $dom->createElement('soap12:Body');
         $envelope->appendChild($body);
 
         $methodElement = $dom->createElementNS('http://www.prefeitura.sp.gov.br/nfe', $method);
         $body->appendChild($methodElement);
 
         // <VersaoSchema>1</VersaoSchema>
-        $versao = $dom->createElement('VersaoSchema', '1');
+        $versao = $dom->createElement('VersaoSchema', '2');
         $methodElement->appendChild($versao);
 
-        // <MensagemXML></MensagemXML> Sem serialize
-//        $mensagemXml = $dom->createElement('MensagemXML');
-//        $xmlFragment = new DOMDocument();
-//        $xmlFragment->loadXML($xml, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
-//        $imported = $dom->importNode($xmlFragment->documentElement, true);
-//        $mensagemXml->appendChild($imported);
-//        $methodElement->appendChild($mensagemXml);
+        // Limpa e normaliza XML original
+        $xml = trim($xml);
+        $xml = preg_replace('/^\xEF\xBB\xBF/', '', $xml);
 
-        // <MensagemXML></MensagemXML> Com serialize
+        // <MensagemXML></MensagemXML> Sem serialize
         $mensagemXml = $dom->createElement('MensagemXML');
-        $cdata = $dom->createCDATASection($xml);
-        $mensagemXml->appendChild($cdata);
+        $mensagemXml->appendChild($dom->createTextNode($xml));
         $methodElement->appendChild($mensagemXml);
 
         // Converte o DOM em string XML
@@ -122,10 +117,19 @@ class NfseSynchronousClientInfra
         ]);
 
         try {
+//            echo $xml;
+//            dd([
+//                'endpoint' => $endpoint,
+//                'headers' => [
+//                    'Content-Type' => 'text/xml; charset=utf-8',
+//                    'SOAPAction'   => "http://www.prefeitura.sp.gov.br/nfe/ConsultaNFeEmitidas"
+//                ],
+//                'body' => $xml,
+//            ]);
             $response = $client->post($endpoint, [
                 'headers' => [
                     'Content-Type' => 'text/xml; charset=utf-8',
-                    'SOAPAction'   => "http://www.prefeitura.sp.gov.br/nfe/$method",
+                    'SOAPAction'   => "http://www.prefeitura.sp.gov.br/nfe/ConsultaNFeEmitidas"
                 ],
                 'body' => $xml,
             ]);
@@ -133,8 +137,21 @@ class NfseSynchronousClientInfra
             $body = (string) $response->getBody();
 
             return [$body];
-        } catch (SoapFault $e) {
-            throw new Exception("Erro ao consumir método SOAP {$method}: " . $e->getMessage());
+        } catch (RequestException $e) {
+            // Aqui é onde você captura erros HTTP (timeout, 500, 400, etc.)
+            $response = $e->getResponse();
+            $statusCode = $response ? $response->getStatusCode() : 'sem resposta';
+            $body = $response ? (string) $response->getBody() : 'nenhum conteúdo';
+
+            \Log::error("Erro HTTP ao processar {$method}", [
+                'status' => $statusCode,
+                'mensagem' => $e->getMessage(),
+                'request_xml' => $xml,
+                'response_xml' => $body,
+            ]);
+
+            throw new Exception("Erro HTTP ({$statusCode}) ao processar {$method}: " . $e->getMessage());
+
         } catch (Exception $e) {
             throw new Exception("Erro inesperado ao processar {$method}: " . $e->getMessage());
         }
