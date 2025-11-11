@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'xsdPath' => app_path('Infra/PrefeituraSaoPaulo/'),
     'certificate' => [
         'certPath' => env('NFSE_CERT_PATH', storage_path('app/public/certificates/pem1/cert.pem')),
         'keyPath' => env('NFSE_KEY_PATH', storage_path('app/public/certificates/pem1/key.pem')),

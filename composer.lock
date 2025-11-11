@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7b5e42263012daad964b036598a563fd",
+    "content-hash": "01b2b27ce20c4759a9567f6e5d878863",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -3870,6 +3870,58 @@
                 "source": "https://github.com/robrichards/xmlseclibs/tree/3.1.3"
             },
             "time": "2024-11-20T21:13:56+00:00"
+        },
+        {
+            "name": "selective/xmldsig",
+            "version": "3.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/selective-php/xmldsig.git",
+                "reference": "c6fa6b639c2c7781e61f885ac8a8de2fa3e9b6a0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/selective-php/xmldsig/zipball/c6fa6b639c2c7781e61f885ac8a8de2fa3e9b6a0",
+                "reference": "c6fa6b639c2c7781e61f885ac8a8de2fa3e9b6a0",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "ext-openssl": "*",
+                "php": "~8.1.0 || ~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0"
+            },
+            "require-dev": {
+                "ext-gmp": "*",
+                "friendsofphp/php-cs-fixer": "^3",
+                "phpstan/phpstan": "^2",
+                "phpunit/phpunit": "^10 || ^12",
+                "squizlabs/php_codesniffer": "^4",
+                "starkbank/ecdsa": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Selective\\XmlDSig\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Sign XML Documents with Digital Signatures",
+            "homepage": "https://github.com/selective-php/xmldsig",
+            "keywords": [
+                "signatures",
+                "verify",
+                "xml",
+                "xmldsig"
+            ],
+            "support": {
+                "issues": "https://github.com/selective-php/xmldsig/issues",
+                "source": "https://github.com/selective-php/xmldsig/tree/3.2.0"
+            },
+            "abandoned": "robrichards/xmlseclibs",
+            "time": "2025-11-09T09:15:21+00:00"
         },
         {
             "name": "symfony/clock",
@@ -9961,7 +10013,12 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.2"
+        "php": "^8.2",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-openssl": "*",
+        "ext-simplexml": "*",
+        "ext-soap": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.6.0"

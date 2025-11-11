@@ -7,6 +7,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-openssl": "*",
+        "ext-simplexml": "*",
+        "ext-soap": "*",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
@@ -14,10 +19,7 @@
         "livewire/flux": "^2.1.1",
         "livewire/volt": "^1.7.0",
         "robrichards/xmlseclibs": "^3.1",
-        "ext-dom": "*",
-        "ext-openssl": "*",
-        "ext-soap": "*",
-        "ext-simplexml": "*"
+        "selective/xmldsig": "^3.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
