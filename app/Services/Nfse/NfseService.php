@@ -57,26 +57,85 @@ class NfseService
      */
     public function check(string $nfseId)
     {
+
+        //Gerar nota individual
+        $rpsList = [
+            'numero' => '1060162',
+            'serie' => 'XLBXK7CR',
+            'dataEmissao' => '2023-01-01',
+            'valorServicos' => 1000.00,
+            'codigoServico' => '0101',
+            'cnpjTomador' => '22620045000100',
+            'razaoSocialTomador' => 'E.R. DO NASCIMENTO BRITO TECNOLOGIA',
+            'emailTomador' => 'e.nascimento@opera2.com.br',
+            'discriminacao' => 'Isso é um teste',
+        ];
+        $rawResponse = $this->synchronousClientInfra->RPSSubmission($rpsList);
+
+
+
+
         //Consultar Nota
         $invoiceNumber = "1060162";
         $verificationCode = "XLBXK7CR";
         $rawResponse = $this->synchronousClientInfra->NFeInquiry($invoiceNumber, $verificationCode);
 
+
+
+
         //Gerar notas em lote Teste
-//        $rpsList = [
-//            [
-//                'numero' => '1060162',
-//                'serie' => 'XLBXK7CR',
-//                'dataEmissao' => '2023-01-01',
-//                'valorServicos' => 1000.00,
-//                'codigoServico' => '0101',
-//                'cnpjTomador' => '22620045000100',
-//                'razaoSocialTomador' => 'E.R. DO NASCIMENTO BRITO TECNOLOGIA',
-//                'emailTomador' => 'e.nascimento@opera2.com.br',
-//                'discriminacao' => 'Isso é um teste',
-//            ]
-//        ];
-//        $rawResponse = $this->synchronousClientInfra->RPSBatchSubmissionTest($rpsList);
+        $rpsList = [
+            [
+                'numero' => '1060162',
+                'serie' => 'XLBXK7CR',
+                'dataEmissao' => '2023-01-01',
+                'valorServicos' => 1000.00,
+                'codigoServico' => '0101',
+                'cnpjTomador' => '22620045000100',
+                'razaoSocialTomador' => 'E.R. DO NASCIMENTO BRITO TECNOLOGIA',
+                'emailTomador' => 'e.nascimento@opera2.com.br',
+                'discriminacao' => 'Isso é um teste',
+            ]
+        ];
+        $rawResponse = $this->synchronousClientInfra->RPSBatchSubmissionTest($rpsList);
+
+
+
+
+        //Gerar notas em lote Teste
+        $rpsList = [
+            [
+                'numero' => '1060162',
+                'serie' => 'XLBXK7CR',
+                'dataEmissao' => '2023-01-01',
+                'valorServicos' => 1000.00,
+                'codigoServico' => '0101',
+                'cnpjTomador' => '22620045000100',
+                'razaoSocialTomador' => 'E.R. DO NASCIMENTO BRITO TECNOLOGIA',
+                'emailTomador' => 'e.nascimento@opera2.com.br',
+                'discriminacao' => 'Isso é um teste',
+            ]
+        ];
+        $rawResponse = $this->synchronousClientInfra->RPSBatchSubmission($rpsList);
+
+
+
+
+        //Cancelar Nota
+        $invoiceNumber = "1060162";
+        $verificationCode = "XLBXK7CR";
+        $rawResponse = $this->synchronousClientInfra->NFeCancellation($invoiceNumber, $verificationCode);
+
+
+
+        //Criar nota individual
+        $invoiceNumber = "1060162";
+        $verificationCode = "XLBXK7CR";
+        $rawResponse = $this->synchronousClientInfra->NFeInquiry($invoiceNumber, $verificationCode);
+
+
+
+
 
         return $rawResponse;
     }

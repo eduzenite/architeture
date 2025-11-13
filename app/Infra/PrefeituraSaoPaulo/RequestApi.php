@@ -42,7 +42,8 @@ class RequestApi
 
         // <MensagemXML></MensagemXML> Sem serialize
         $mensagemXml = $dom->createElement('MensagemXML');
-        $cdata = $dom->createCDATASection($xml);
+        $cleanXml = trim(preg_replace('/\r?\n/', '', $xml));
+        $cdata = $dom->createCDATASection($cleanXml);
         $mensagemXml->appendChild($cdata);
         $methodElement->appendChild($mensagemXml);
 
@@ -57,16 +58,22 @@ class RequestApi
         ]);
 
         try {
-//            echo $xml;
-//            print_r([
-//                'endpoint' => $endpoint,
-//                'headers' => [
-//                    'Content-Type' => 'text/xml; charset=utf-8',
-//                    'SOAPAction'   => $SOAPAction
-//                ],
-//                'body' => $xml,
-//            ]);
-//            die();
+
+
+            echo $xml;
+            print_r([
+                'endpoint' => $endpoint,
+                'headers' => [
+                    'Content-Type' => 'text/xml; charset=utf-8',
+                    'SOAPAction'   => $SOAPAction
+                ],
+                'body' => $xml,
+            ]);
+            die();
+
+
+
+
             $response = $client->post($endpoint, [
                 'headers' => [
                     'Content-Type' => 'text/xml; charset=utf-8',
