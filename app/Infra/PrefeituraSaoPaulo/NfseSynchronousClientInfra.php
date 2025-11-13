@@ -6,7 +6,6 @@ use App\Infra\PrefeituraSaoPaulo\XmlProcessing\BuildCancel;
 use App\Infra\PrefeituraSaoPaulo\XmlProcessing\BuildNfeInquiry;
 use App\Infra\PrefeituraSaoPaulo\XmlProcessing\BuildRps;
 use App\Infra\PrefeituraSaoPaulo\XmlProcessing\BuildRpsBatch;
-use App\Infra\PrefeituraSaoPaulo\XmlProcessing\SignXml;
 
 class NfseSynchronousClientInfra
 {
@@ -24,11 +23,7 @@ class NfseSynchronousClientInfra
         $this->endpointNF = config("nfse.endpoint.NF");
         $this->endpointNFTS = config("nfse.endpoint.NFTS");
         $this->requestApi = new RequestApi(config("nfse.certificate.certPath"), config("nfse.certificate.keyPath"));
-        $this->certificates = [
-            'certPass' => config("nfse.certificate.pemPassword"),
-            'certPath' => config("nfse.certificate.certPath"),
-            'keyPath' => config("nfse.certificate.keyPath")
-        ];
+        $this->certificates = config("nfse.certificate");
     }
 
     public function RPSSubmission(array $rpsData): array

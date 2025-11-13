@@ -12,6 +12,7 @@
         "ext-openssl": "*",
         "ext-simplexml": "*",
         "ext-soap": "*",
+        "greenter/xmldsig": "^5.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",

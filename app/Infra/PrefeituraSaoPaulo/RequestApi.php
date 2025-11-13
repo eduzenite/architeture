@@ -40,19 +40,14 @@ class RequestApi
         $versao = $dom->createElement('VersaoSchema', '1');
         $methodElement->appendChild($versao);
 
-        // Limpa e normaliza XML original
-//        $xml = trim($xml);
-//        $xml = preg_replace('/^\xEF\xBB\xBF/', '', $xml);
-
         // <MensagemXML></MensagemXML> Sem serialize
         $mensagemXml = $dom->createElement('MensagemXML');
-        $mensagemXml->appendChild($dom->createTextNode($xml));
+        $cdata = $dom->createCDATASection($xml);
+        $mensagemXml->appendChild($cdata);
         $methodElement->appendChild($mensagemXml);
 
         // Converte o DOM em string XML
         $xml = $dom->saveXML();
-//        echo $xml;
-//        die();
 
         $client = new Client([
             'verify' => false,
@@ -62,16 +57,16 @@ class RequestApi
         ]);
 
         try {
-            echo $xml;
-            print_r([
-                'endpoint' => $endpoint,
-                'headers' => [
-                    'Content-Type' => 'text/xml; charset=utf-8',
-                    'SOAPAction'   => $SOAPAction
-                ],
-                'body' => $xml,
-            ]);
-            die();
+//            echo $xml;
+//            print_r([
+//                'endpoint' => $endpoint,
+//                'headers' => [
+//                    'Content-Type' => 'text/xml; charset=utf-8',
+//                    'SOAPAction'   => $SOAPAction
+//                ],
+//                'body' => $xml,
+//            ]);
+//            die();
             $response = $client->post($endpoint, [
                 'headers' => [
                     'Content-Type' => 'text/xml; charset=utf-8',

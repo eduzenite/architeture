@@ -57,11 +57,12 @@ class NfseService
      */
     public function check(string $nfseId)
     {
-        //Nota
+        //Consultar Nota
         $invoiceNumber = "1060162";
         $verificationCode = "XLBXK7CR";
         $rawResponse = $this->synchronousClientInfra->NFeInquiry($invoiceNumber, $verificationCode);
 
+        //Gerar notas em lote Teste
 //        $rpsList = [
 //            [
 //                'numero' => '1060162',
@@ -72,7 +73,7 @@ class NfseService
 //                'cnpjTomador' => '22620045000100',
 //                'razaoSocialTomador' => 'E.R. DO NASCIMENTO BRITO TECNOLOGIA',
 //                'emailTomador' => 'e.nascimento@opera2.com.br',
-//                'discriminacao' => 'Isso é um teste'
+//                'discriminacao' => 'Isso é um teste',
 //            ]
 //        ];
 //        $rawResponse = $this->synchronousClientInfra->RPSBatchSubmissionTest($rpsList);

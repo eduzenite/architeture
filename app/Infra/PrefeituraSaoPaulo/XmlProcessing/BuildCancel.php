@@ -60,12 +60,10 @@ class BuildCancel
         $codigo = $dom->createElement('CodigoVerificacao', $verificationCode);
         $chaveNfe->appendChild($codigo);
 
-        $signedXml = $this->signXml->sign($dom->saveXML());
+        // ===== Assinatura digital =====
+        $xmlUnsigned = $dom->saveXML();
+        $signedXml = $this->signXml->sign($xmlUnsigned, $this->xsdPath);
 
-        if($this->validadeXml->validate($dom->saveXML(), $this->xsdPath)){
-            return $signedXml;
-        }else{
-            return false;
-        }
+        return $signedXml;
     }
 }

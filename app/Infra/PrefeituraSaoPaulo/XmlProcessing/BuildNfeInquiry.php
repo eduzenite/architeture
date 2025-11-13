@@ -9,7 +9,6 @@ class BuildNfeInquiry
     protected string $cnpj;
     protected string $municipalRegistration;
     protected string $xsdPath;
-    protected ValidadeXml $validadeXml;
     protected SignXml $signXml;
 
     public function __construct(string $cnpj, string $municipalRegistration, array $certificates)
@@ -17,7 +16,6 @@ class BuildNfeInquiry
         $this->cnpj = $cnpj;
         $this->municipalRegistration = $municipalRegistration;
         $this->xsdPath = config("nfse.xsdPath")."schemas_v2/PedidoConsultaNFe_v02.xsd";
-        $this->validadeXml = new ValidadeXml();
         $this->signXml = new SignXml($certificates);
     }
 
@@ -64,15 +62,8 @@ class BuildNfeInquiry
 
         // ===== Assinatura digital =====
         $xmlUnsigned = $dom->saveXML();
-        $signedXml = $this->signXml->sign($xmlUnsigned);
+        $signedXml = $this->signXml->sign($xmlUnsigned, $this->xsdPath);
 
-        // ===== Validação contra o XSD =====
-        if ($this->validadeXml->validate($signedXml, $this->xsdPath)) {
-            return $signedXml;
-        }else{
-            echo $xmlUnsigned;
-        }
-
-        return false;
+        return $signedXml;
     }
 }

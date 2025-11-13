@@ -25,87 +25,90 @@ class BuildRpsBatch
     {
         $dom = new DOMDocument('1.0', 'utf-8');
         $dom->preserveWhiteSpace = false;
-        $dom->formatOutput = false;
+        $dom->formatOutput = true; // Use true para facilitar a visualização do resultado
 
-        // Define o namespace padrão (targetNamespace do XSD)
+        // Variável de controle de namespace
         $ns = 'http://www.prefeitura.sp.gov.br/nfe';
 
-        // Cria o elemento raiz com o namespace correto
+        // ===== Elemento raiz (com namespace, utilizando prefixo para evitar herança) =====
+        // Usamos um prefixo 'nfe' no nome qualificado para que os filhos não herdem o default NS
         $root = $dom->createElementNS($ns, 'PedidoEnvioLoteRPS');
         $dom->appendChild($root);
+        // Adiciona a declaração do namespace
+        $root->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:nfe', $ns);
 
-        // ===== Cabeçalho =====
-        // CORRIGIDO: Usa createElementNS para Cabecalho
-        $cabecalho = $dom->createElementNS($ns, 'Cabecalho');
+        // ===== Cabeçalho (AGORA SEMPRE COM NAMESPACE VAZIO: '') =====
+        $cabecalho = $dom->createElementNS('', 'Cabecalho');
         $cabecalho->setAttribute('Versao', '1');
         $root->appendChild($cabecalho);
 
-        // CORRIGIDO: Usa createElementNS para todos os elementos filhos do Cabecalho
-        $cpfCnpjRemetente = $dom->createElementNS($ns, 'CPFCNPJRemetente');
-        $cnpj = $dom->createElementNS($ns, 'CNPJ', $this->cnpj);
-        $cpfCnpjRemetente->appendChild($cnpj);
+        // CPFCNPJRemetente
+        // FIX: Usando '' para garantir NO namespace
+        $cpfCnpjRemetente = $dom->createElementNS('', 'CPFCNPJRemetente');
+        $cpfCnpjRemetente->appendChild($dom->createElementNS('', 'CNPJ', $this->cnpj));
         $cabecalho->appendChild($cpfCnpjRemetente);
 
-        // campos em minúsculo conforme XSD
-        $transacao = $dom->createElementNS($ns, 'transacao', 'false');
-        $cabecalho->appendChild($transacao);
+        // Demais campos do cabeçalho
+        // FIX: Usando '' para garantir NO namespace
+        $cabecalho->appendChild($dom->createElementNS('', 'transacao', 'false'));
+        $cabecalho->appendChild($dom->createElementNS('', 'dtInicio', date('Y-m-d')));
+        $cabecalho->appendChild($dom->createElementNS('', 'dtFim', date('Y-m-d')));
+        $cabecalho->appendChild($dom->createElementNS('', 'QtdRPS', (string) count($rpsList)));
 
-        $dtInicio = $dom->createElementNS($ns, 'dtInicio', date('Y-m-d'));
-        $cabecalho->appendChild($dtInicio);
-
-        $dtFim = $dom->createElementNS($ns, 'dtFim', date('Y-m-d'));
-        $cabecalho->appendChild($dtFim);
-
-        $qtdeRPS = $dom->createElementNS($ns, 'QtdRPS', count($rpsList));
-        $cabecalho->appendChild($qtdeRPS);
-
-        // Soma dos valores para o campo obrigatório
         $valorTotalServicos = array_sum(array_column($rpsList, 'valorServicos'));
-        $cabecalho->appendChild($dom->createElementNS(
-            $ns,
-            'ValorTotalServicos',
-            number_format($valorTotalServicos, 2, '.', '')
-        ));
+        $cabecalho->appendChild($dom->createElementNS('', 'ValorTotalServicos', number_format($valorTotalServicos, 2, '.', '')));
+        $cabecalho->appendChild($dom->createElementNS('', 'ValorTotalDeducoes', '0.00'));
 
-        // Campo opcional, pode ser zero
-        $cabecalho->appendChild($dom->createElementNS($ns, 'ValorTotalDeducoes', '0.00'));
-
-        // ===== Lote de RPS =====
+        // ===== Lote de RPS (SEM namespace: '') =====
         foreach ($rpsList as $rpsData) {
-            // CORRIGIDO: Usa createElementNS para RPS
-            $rps = $dom->createElementNS($ns, 'RPS');
+            // ===== RPS (SEM namespace: '') =====
+            // FIX: Usando '' para garantir NO namespace
+            $rps = $dom->createElementNS('', 'RPS');
             $root->appendChild($rps);
 
-            // CORRIGIDO: Usa createElementNS para todos os elementos filhos do RPS
-            $identificacao = $dom->createElementNS($ns, 'IdentificacaoRPS');
-            $identificacao->appendChild($dom->createElementNS($ns, 'Numero', $rpsData['numero']));
-            $identificacao->appendChild($dom->createElementNS($ns, 'Serie', $rpsData['serie']));
-            $identificacao->appendChild($dom->createElementNS($ns, 'Tipo', 'RPS'));
+            // ----- Identificação do RPS -----
+            // FIX: Usando '' para garantir NO namespace
+            $identificacao = $dom->createElementNS('', 'IdentificacaoRPS');
+            $identificacao->appendChild($dom->createElementNS('', 'Numero', (string) $rpsData['numero']));
+            $identificacao->appendChild($dom->createElementNS('', 'Serie', $rpsData['serie']));
+            $identificacao->appendChild($dom->createElementNS('', 'Tipo', 1));
             $rps->appendChild($identificacao);
 
-            $rps->appendChild($dom->createElementNS($ns, 'DataEmissao', $rpsData['dataEmissao']));
-            $rps->appendChild($dom->createElementNS($ns, 'ValorServicos', number_format($rpsData['valorServicos'], 2, '.', '')));
-            $rps->appendChild($dom->createElementNS($ns, 'CodigoServico', $rpsData['codigoServico']));
+            // ----- Demais campos obrigatórios -----
+            // FIX: Usando '' para garantir NO namespace
+            $rps->appendChild($dom->createElementNS('', 'DataEmissao', $rpsData['dataEmissao']));
+            $rps->appendChild($dom->createElementNS('', 'ValorServicos', number_format($rpsData['valorServicos'], 2, '.', '')));
+            $rps->appendChild($dom->createElementNS('', 'CodigoServico', $rpsData['codigoServico']));
 
-            // Tomador e sub-elementos
-            $tomador = $dom->createElementNS($ns, 'Tomador');
-            $cpfCnpjTomador = $dom->createElementNS($ns, 'CPFCNPJ');
-            // CORRIGIDO: Usa createElementNS para CNPJ dentro de CPFCNPJ
-            $cpfCnpjTomador->appendChild($dom->createElementNS($ns, 'CNPJ', $rpsData['cnpjTomador']));
+            // ----- Tomador -----
+            // FIX: Usando '' para garantir NO namespace
+            $tomador = $dom->createElementNS('', 'Tomador');
+            $cpfCnpjTomador = $dom->createElementNS('', 'CPFCNPJ');
+            $cnpjTom = preg_replace('/\D/', '', $rpsData['cnpjTomador']);
+
+            if (strlen($cnpjTom) === 11) {
+                $cpfCnpjTomador->appendChild($dom->createElementNS('', 'CPF', $cnpjTom));
+            } else {
+                $cpfCnpjTomador->appendChild($dom->createElementNS('', 'CNPJ', $cnpjTom));
+            }
+
             $tomador->appendChild($cpfCnpjTomador);
-            $tomador->appendChild($dom->createElementNS($ns, 'RazaoSocial', $rpsData['razaoSocialTomador']));
-            $tomador->appendChild($dom->createElementNS($ns, 'Email', $rpsData['emailTomador']));
+            $tomador->appendChild($dom->createElementNS('', 'RazaoSocial', $rpsData['razaoSocialTomador']));
+            $tomador->appendChild($dom->createElementNS('', 'Email', $rpsData['emailTomador']));
             $rps->appendChild($tomador);
 
-            $rps->appendChild($dom->createElementNS($ns, 'Discriminacao', htmlspecialchars($rpsData['discriminacao'])));
+            // ----- Discriminação (CDATA) -----
+            // FIX: Usando '' para garantir NO namespace
+            $discNode = $dom->createElementNS('', 'Discriminacao');
+            $discNode->appendChild($dom->createCDATASection($rpsData['discriminacao']));
+            $rps->appendChild($discNode);
         }
 
-        $signedXml = $this->signXml->sign($dom->saveXML());
+        // ===== Assinatura digital =====
+        $xmlUnsigned = $dom->saveXML();
+        $signedXml = $this->signXml->sign($xmlUnsigned, $this->xsdPath);
 
-        if($this->validadeXml->validate($dom->saveXML(), $this->xsdPath)){
-            return $signedXml;
-        }else{
-            return false;
-        }
+        return $signedXml;
     }
+
 }

@@ -3,9 +3,12 @@
 return [
     'xsdPath' => app_path('Infra/PrefeituraSaoPaulo/'),
     'certificate' => [
-        'certPath' => env('NFSE_CERT_PATH', storage_path('app/public/certificates/pem1/cert.pem')),
-        'keyPath' => env('NFSE_KEY_PATH', storage_path('app/public/certificates/pem1/key.pem')),
-        'pemPassword' => env('NFSE_CERT_PASSWORD'),
+        'certPath' => env('NFSE_CERT_PATH', storage_path('app/public/certificates/pem3/cert.pem')),
+        'keyPath' => env('NFSE_KEY_PATH', storage_path('app/public/certificates/pem3/key.pem')),
+
+        'pfxPath' => env('NFSE_PFX_PATH'),
+        'pfxPassword' => env('NFSE_PFX_PASSWORD'),
+
         'cacertPath' => env('NFSE_CACERT_PATH', storage_path('app/public/certificates/cacert.pem')),
     ],
     'endpoint' => [

@@ -12,14 +12,16 @@ class SignXml
     protected string $certPass;
     protected string $certPath;
     protected string $keyPath;
+    protected ValidadeXml $validadeXml;
 
     public function __construct($certificates){
-        $this->certPass = $certificates['certPass'];
+        $this->certPass = $certificates['pfxPath'];
         $this->certPath = $certificates['certPath'];
         $this->keyPath = $certificates['keyPath'];
+        $this->validadeXml = new ValidadeXml();
     }
 
-    public function sign(string $xmlContent): string
+    public function sign(string $xmlContent, string $xsdPath): string
     {
         $doc = new DOMDocument('1.0', 'utf-8');
         $doc->preserveWhiteSpace = false;
@@ -95,6 +97,10 @@ class SignXml
 
         $root->appendChild($signature);
 
-        return $doc->saveXML();
+        if ($this->validadeXml->validate($doc->saveXML(), $xsdPath)) {
+            return $doc->saveXML();
+        }else{
+            return false;
+        }
     }
 }
