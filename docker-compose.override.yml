@@ -1,19 +1,22 @@
 services:
   application:
+    env_file:
+      - ./.env.example.local-serve
     depends_on:
       - application-database
+    volumes:
+      - .:/var/www
+      - ./storage:/var/www/storage
+      - ./docker/scripts/wait-for-it.sh:/usr/local/bin/wait-for-it.sh
     command: >
-      sh -c "php artisan serve --host=0.0.0.0 --port=8000 & php artisan queue:work --sleep=3 --tries=3"
+      sh -c "/usr/local/bin/wait-for-it.sh application-database:3306 --timeout=30 --strict -- php artisan serve --host=0.0.0.0 --port=8000 & php artisan queue:work --sleep=3 --tries=3"
 
   application-database:
     container_name: mysql
     image: mysql:8.0
     restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-architecture}
-      MYSQL_USER: ${MYSQL_USER:-architecture}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-12345678}
+    env_file:
+      - ./.env.example.local-serve
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -31,9 +34,8 @@ services:
     container_name: minio
     image: minio/minio:latest
     restart: unless-stopped
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    env_file:
+      - ./.env.example.local-serve
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"  # API

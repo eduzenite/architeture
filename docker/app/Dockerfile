@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y \
 RUN pecl install redis \
     && docker-php-ext-enable redis
 
+# Instala extensões necessárias
+RUN apt-get update && apt-get install -y libxml2-dev \
+    && docker-php-ext-install soap
+
 # Instala Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
